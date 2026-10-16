@@ -7,6 +7,7 @@
 
 import type { CallOutcome, LinkedInClient, RequestPreview } from "../engine/client.js";
 import { LINKEDIN_SITE, type Plan, type PlanEntry } from "./campaign.js";
+import { decideAccount } from "./guard.js";
 import type { AutomationStore } from "./store.js";
 
 export type { Plan, PlanEntry } from "./campaign.js";
@@ -28,6 +29,13 @@ export interface ExecutionContext {
   readonly confirm?: (entry: PlanEntry) => boolean | Promise<boolean>;
   /** Explicit override for an operation with no observed request shape. Off by default. */
   readonly allowUnverified?: boolean;
+  /**
+   * The account actually signed in, resolved once before the run. Required for any write: an
+   * unknown identity cannot be checked against the allow-list, so it is refused.
+   */
+  readonly account?: string;
+  /** Accounts permitted to send writes. An empty list permits nothing. */
+  readonly allowedAccounts?: readonly string[];
   /** Clock, injected so the audit trail is deterministic under test. */
   readonly now?: () => Date;
 }
@@ -69,6 +77,16 @@ async function runEntry(
   }
 
   const isWrite = entry.kind === "write";
+
+  // The account is checked first. Every later gate can be misconfigured by a flag or a setting;
+  // this one compares the identity that is actually signed in, so it must not sit behind them.
+  if (isWrite) {
+    const guard = decideAccount(ctx.account, ctx.allowedAccounts ?? []);
+    if (!guard.ok) {
+      await ctx.store.append({ ...key, outcome: "skipped", at, note: guard.reason });
+      return { entry, status: "refused", reason: guard.reason };
+    }
+  }
 
   if (isWrite && !entry.verified && ctx.allowUnverified !== true) {
     const reason =

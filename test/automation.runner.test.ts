@@ -40,7 +40,13 @@ test("a write without confirmation is refused, spends nothing, and says why", as
   const client = createFakeEngine([]);
   const store = createMemoryStore();
 
-  const outcomes = await executePlan([entry()], { client, store });
+  // The account gate is satisfied first so this test isolates the confirmation gate behind it.
+  const outcomes = await executePlan([entry()], {
+    client,
+    store,
+    account: "ana-test",
+    allowedAccounts: ["ana-test"],
+  });
 
   assert.equal(outcomes[0]?.status, "refused");
   assert.match(outcomes[0]?.reason ?? "", /confirm/i);
@@ -56,6 +62,8 @@ test("a confirmed write reaches the engine with writes permitted", async () => {
     client,
     store,
     confirm: () => true,
+    account: "ana-test",
+    allowedAccounts: ["ana-test"],
   });
 
   assert.equal(outcomes[0]?.status, "executed");
@@ -71,6 +79,8 @@ test("an unverified write is refused even when the operator confirmed it", async
     client,
     store,
     confirm: () => true,
+    account: "ana-test",
+    allowedAccounts: ["ana-test"],
   });
 
   assert.equal(outcomes[0]?.status, "refused");
@@ -87,6 +97,8 @@ test("an explicit override is the only way an unverified write runs", async () =
     store,
     confirm: () => true,
     allowUnverified: true,
+    account: "ana-test",
+    allowedAccounts: ["ana-test"],
   });
 
   assert.equal(outcomes[0]?.status, "executed");
@@ -96,7 +108,13 @@ test("a write whose outcome is unknown is recorded as unconfirmed and never retr
   const client = createFakeEngine([fails("error", "timeout after send")]);
   const store = createMemoryStore();
 
-  const outcomes = await executePlan([entry()], { client, store, confirm: () => true });
+  const outcomes = await executePlan([entry()], {
+    client,
+    store,
+    confirm: () => true,
+    account: "ana-test",
+    allowedAccounts: ["ana-test"],
+  });
 
   assert.equal(outcomes[0]?.status, "unconfirmed");
   assert.equal(
@@ -110,7 +128,13 @@ test("a write the server certainly rejected is recorded as failed so it can be r
   for (const cls of ["input", "refused", "auth", "rate", "blocked"] as const) {
     const client = createFakeEngine([fails(cls)]);
     const store = createMemoryStore();
-    const outcomes = await executePlan([entry()], { client, store, confirm: () => true });
+    const outcomes = await executePlan([entry()], {
+      client,
+      store,
+      confirm: () => true,
+      account: "ana-test",
+      allowedAccounts: ["ana-test"],
+    });
     assert.equal(outcomes[0]?.status, "failed", `${cls} should be a definite failure`);
     assert.equal(await store.hasDone("lead-1", "q4-outreach", "invite"), false, cls);
   }
@@ -167,7 +191,13 @@ test("every entry produces an outcome, so a run cannot silently drop work", asyn
     entry({ stepId: "c" }),
   ];
 
-  const outcomes = await executePlan(plan, { client, store, confirm: () => true });
+  const outcomes = await executePlan(plan, {
+    client,
+    store,
+    confirm: () => true,
+    account: "ana-test",
+    allowedAccounts: ["ana-test"],
+  });
 
   assert.equal(outcomes.length, plan.length);
   assert.deepEqual(outcomes.map((o) => o.entry.stepId), ["a", "b", "c"]);

@@ -10,6 +10,14 @@ coverage/
 linkedin-automator.config.json
 state/
 
+# Captured traffic and per-account sessions: these hold live cookie values.
+*.har
+*.saz
+*.mitm
+.api-anything*/
+cookies.txt
+!test/fixtures/*.har
+
 # unlazy dispatch state and hook bookkeeping
 .unlazy/
 .unlazy-hook-state.json

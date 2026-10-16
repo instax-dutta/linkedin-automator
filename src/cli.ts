@@ -13,6 +13,7 @@ import { createApiAnythingClient } from "./engine/api-anything.js";
 import type { LinkedInClient } from "./engine/client.js";
 import { findOperation, listOperations, validateArgs, OperationInputError } from "./ops/index.js";
 import { emptyUsage } from "./automation/pacing.js";
+import { decideAccount } from "./automation/guard.js";
 import { createFileStore, type AutomationStore } from "./automation/store.js";
 import { planCampaign, LINKEDIN_SITE, type Lead } from "./automation/campaign.js";
 import { executePlan, previewPlan } from "./automation/runner.js";
@@ -31,6 +32,7 @@ export interface CliDeps {
 
 const USAGE = `usage: linkedin-automator <command> [options]
 
+  doctor                                      check the session, the account, and every read spec
   ops [name]                                  list operations, or describe one
   plan --campaign <file> --leads <file>       expand a campaign without doing anything
   run  --campaign <file> --leads <file>       execute a campaign
@@ -40,8 +42,9 @@ const USAGE = `usage: linkedin-automator <command> [options]
   call <op> [k=v ...]                         call one read operation
   login                                       how to sign in
 
-Planning and dry runs never send anything. A write needs --confirm, an "on" setting in
-LINKEDIN_AUTOMATOR_ALLOW_WRITES, and a request shape that has been observed.`;
+Planning and dry runs never send anything. A write needs all four of:
+  an observed request shape, --confirm, LINKEDIN_AUTOMATOR_ALLOW_WRITES=true, and a signed-in
+  account listed in LINKEDIN_AUTOMATOR_ALLOWED_ACCOUNTS. Run "doctor" to check them.`;
 
 interface Parsed {
   readonly positionals: readonly string[];
@@ -142,6 +145,61 @@ export async function runCli(argv: readonly string[], deps: CliDeps = {}): Promi
       return 0;
     }
 
+    case "doctor": {
+      const config = loadConfig(env);
+      const client = engineFor();
+
+      const me = await client.call<Record<string, unknown>>({
+        site: LINKEDIN_SITE,
+        op: "getMe",
+      });
+      if (!me.ok) {
+        err(`session: ${me.class}: ${me.reason}`);
+        if (me.next) err(`next: ${me.next}`);
+        return 1;
+      }
+
+      const data = me.data ?? {};
+      const name = [data.firstName, data.lastName]
+        .filter((value): value is string => typeof value === "string" && value !== "")
+        .join(" ");
+      const account =
+        typeof data.publicIdentifier === "string" ? data.publicIdentifier : undefined;
+
+      out(`session: signed in as ${name || "(no name reported)"} (${account ?? "unknown"})`);
+      if (me.tier !== undefined) out(`  transport: tier ${me.tier} in ${me.ms}ms`);
+
+      const decision = decideAccount(account, config.allowedAccounts);
+      out(
+        decision.ok
+          ? `writes: permitted for "${account}"`
+          : `writes: refused — ${decision.reason}`,
+      );
+      if (!config.allowWrites) {
+        out(
+          "  note: LINKEDIN_AUTOMATOR_ALLOW_WRITES is off, so a write also needs that setting",
+        );
+      }
+
+      out("reads (rendered, not sent):");
+      for (const descriptor of listOperations("read")) {
+        const args: Record<string, unknown> = {};
+        for (const param of descriptor.params) {
+          if (param.required) args[param.name] = "example";
+        }
+        try {
+          const preview = await client.preview({ site: LINKEDIN_SITE, op: descriptor.name, args });
+          out(`  ${descriptor.name.padEnd(16)} ${preview.method} ${preview.url}`);
+        } catch (error) {
+          out(
+            `  ${descriptor.name.padEnd(16)} unavailable — ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
+      out("doctor changes nothing: one read, and the rest rendered without sending");
+      return 0;
+    }
+
     case "plan":
     case "run": {
       const campaignPath = flags.campaign;
@@ -193,13 +251,32 @@ export async function runCli(argv: readonly string[], deps: CliDeps = {}): Promi
         return 0;
       }
 
-      // Two keys are needed to send a write: this run's confirmation, and the setting.
+      const client = engineFor();
+
+      // Resolve who is actually signed in. Without it the guard refuses every write, which is the
+      // safe outcome, but a live run should say why before it starts rather than after.
+      let account: string | undefined;
+      if (plan.entries.some((entry) => entry.kind === "write" && entry.skipReason === undefined)) {
+        const me = await client.call<Record<string, unknown>>({ site: LINKEDIN_SITE, op: "getMe" });
+        if (me.ok && typeof me.data?.publicIdentifier === "string") {
+          account = me.data.publicIdentifier;
+          out(`account: signed in as "${account}"`);
+        } else {
+          out(
+            `account: could not be established (${me.ok ? "no public identifier reported" : me.reason}) — writes will be refused`,
+          );
+        }
+      }
+
+      // Every gate open at once: this run's confirmation, the setting, and the account allow-list.
       const confirmed = flags.confirm === true && config.allowWrites;
       const outcomes = await executePlan(plan, {
-        client: engineFor(),
+        client,
         store: storeFor(),
         confirm: () => confirmed,
         allowUnverified: config.allowUnverified,
+        allowedAccounts: config.allowedAccounts,
+        ...(account !== undefined ? { account } : {}),
         ...(deps.now ? { now: () => deps.now! } : {}),
       });
 
@@ -213,6 +290,11 @@ export async function runCli(argv: readonly string[], deps: CliDeps = {}): Promi
       if (!confirmed && outcomes.some((outcome) => outcome.entry.kind === "write")) {
         out(
           "writes were refused: add --confirm and set LINKEDIN_AUTOMATOR_ALLOW_WRITES=true (run --dry first)",
+        );
+      }
+      if (config.allowedAccounts.length === 0) {
+        out(
+          "no account is allow-listed: set LINKEDIN_AUTOMATOR_ALLOWED_ACCOUNTS to the test account's public id",
         );
       }
 

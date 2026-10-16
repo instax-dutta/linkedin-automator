@@ -6,6 +6,7 @@
  */
 
 import { DEFAULT_PACING, type PacingConfig } from "./automation/pacing.js";
+import { parseAllowedAccounts } from "./automation/guard.js";
 import type { Campaign, CampaignStep, Lead } from "./automation/campaign.js";
 import { findOperation } from "./ops/index.js";
 
@@ -16,6 +17,11 @@ export interface Config {
   readonly allowWrites: boolean;
   /** Permits a write whose request shape has never been observed. Off, deliberately. */
   readonly allowUnverified: boolean;
+  /**
+   * Accounts permitted to send writes. Empty means no write may be sent from any account, which is
+   * the default: the guard exists so a test run cannot reach a personal profile.
+   */
+  readonly allowedAccounts: readonly string[];
   readonly apiAnythingHome?: string;
 }
 
@@ -61,6 +67,7 @@ export function loadConfig(
     },
     allowWrites: affirmative(env.LINKEDIN_AUTOMATOR_ALLOW_WRITES),
     allowUnverified: affirmative(env.LINKEDIN_AUTOMATOR_ALLOW_UNVERIFIED),
+    allowedAccounts: parseAllowedAccounts(env.LINKEDIN_AUTOMATOR_ALLOWED_ACCOUNTS),
     ...(env.API_ANYTHING_HOME !== undefined && env.API_ANYTHING_HOME !== ""
       ? { apiAnythingHome: env.API_ANYTHING_HOME }
       : {}),

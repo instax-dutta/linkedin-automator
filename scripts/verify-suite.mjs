@@ -19,6 +19,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const REQUIRED_TESTS = [
   "writes are not permitted unless the caller grants them explicitly",
   "a write without confirmation is refused, spends nothing, and says why",
+  "a write is refused when the signed-in account is not allow-listed",
+  "a write is refused when the signed-in account could not be established",
+  "an empty allow-list refuses every write, including for a known account",
   "an unverified write is refused even when the operator confirmed it",
   "a write whose outcome is unknown is recorded as unconfirmed and never retried",
   "a write the server certainly rejected is recorded as failed so it can be retried",
@@ -29,7 +32,7 @@ const REQUIRED_TESTS = [
   "credentials are never stored in a spec",
 ];
 
-const MINIMUM_TESTS = 40;
+const MINIMUM_TESTS = 120;
 
 function findTestFiles(dir) {
   const found = [];

@@ -21,10 +21,19 @@ const GATES = {
     files: ["test/engine.adapter.test.ts"],
     minimum: 8,
   },
+  account: {
+    label: "the signed-in account guard, checked before every other write gate",
+    files: ["test/automation.guard.test.ts"],
+    minimum: 10,
+  },
   safety: {
-    label: "write refusal, confirmation and ambiguity handling",
-    files: ["test/automation.runner.test.ts", "test/automation.dryrun.test.ts"],
-    minimum: 17,
+    label: "account guard, write refusal, confirmation and ambiguity handling",
+    files: [
+      "test/automation.guard.test.ts",
+      "test/automation.runner.test.ts",
+      "test/automation.dryrun.test.ts",
+    ],
+    minimum: 27,
   },
   pacing: {
     label: "invitation ceilings across day, ISO week and month",
@@ -52,9 +61,9 @@ const GATES = {
     minimum: 18,
   },
   cli: {
-    label: "CLI surface, including write refusal through the real interface",
+    label: "CLI surface, including the doctor pre-flight and its refusals",
     files: ["test/cli.test.ts", "test/config.test.ts"],
-    minimum: 18,
+    minimum: 24,
   },
 };
 

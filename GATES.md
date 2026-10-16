@@ -8,7 +8,7 @@ refused by default, planned before it acts, and provable without touching a live
 - [x] G1: the whole suite passes, with the named safety-property tests present and green
   CHECK: node scripts/verify-suite.mjs
   EXPECT: suite verification passed
-  EVIDENCE: automatic-evidence=v1; definition-sha256=d206b0d7f69127bed1c5fd696c19f131dfcb88d7687e83df38d61f556abab451; exit=0; EXPECT=matched; output-sha256=7200640827ba5a66e8c3efbf3ab554616458630b722a20ffbf55aa8f4b55ed35; output-bytes=48; shell=/bin/sh; cwd=/Users/saiduttaabhishekdash/linkedin-automator; path=b93c3fbfaca3/30 entries
+  EVIDENCE: automatic-evidence=v1; definition-sha256=d206b0d7f69127bed1c5fd696c19f131dfcb88d7687e83df38d61f556abab451; exit=0; EXPECT=matched; output-sha256=e4167175ff958a154bb2c88c3d9bcdb21134cbf14deba9fc83032a789a30e348; output-bytes=48; shell=/bin/sh; cwd=/Users/saiduttaabhishekdash/linkedin-automator; path=b93c3fbfaca3/30 entries
 
 - [x] G2: src and test compile with no type errors
   CHECK: node scripts/verify-typecheck.mjs
@@ -28,7 +28,12 @@ refused by default, planned before it acts, and provable without touching a live
 - [x] G5: a write is refused without confirmation, without permission, and without an observed shape; an ambiguous write is never retried
   CHECK: node scripts/verify-gates.mjs safety
   EXPECT: safety gate verification passed
-  EVIDENCE: automatic-evidence=v1; definition-sha256=d350044de92a8e20f509e66345db84bd131da7297494e31c7580e067e386f526; exit=0; EXPECT=matched; output-sha256=e4beb39045fa0c8f673b8184a337f7ca5116f0f58ace5740d49cd77260ec10b5; output-bytes=95; shell=/bin/sh; cwd=/Users/saiduttaabhishekdash/linkedin-automator; path=b93c3fbfaca3/30 entries
+  EVIDENCE: automatic-evidence=v1; definition-sha256=d350044de92a8e20f509e66345db84bd131da7297494e31c7580e067e386f526; exit=0; EXPECT=matched; output-sha256=14fde3f01cfda55d98e11bb08ab8639d0cecab12ff01897e92560091d2448e8d; output-bytes=110; shell=/bin/sh; cwd=/Users/saiduttaabhishekdash/linkedin-automator; path=b93c3fbfaca3/30 entries
+
+- [x] G14: a write is refused unless the signed-in account is allow-listed, an empty allow-list permits nothing, and the guard is reached before any other write gate
+  CHECK: node scripts/verify-gates.mjs account
+  EXPECT: account gate verification passed
+  EVIDENCE: automatic-evidence=v1; definition-sha256=21a680d7c84440bb0a757c9946611bae905db4cb187f6439cf62a68d6cd9eaf7; exit=0; EXPECT=matched; output-sha256=0b5b73f6c145dd151a95972808d77c82d8a02f9f844316feeed0172e4fe01b05; output-bytes=112; shell=/bin/sh; cwd=/Users/saiduttaabhishekdash/linkedin-automator; path=b93c3fbfaca3/30 entries
 
 - [x] G6: the invitation ceilings hold at their boundaries across day, ISO week and month
   CHECK: node scripts/verify-gates.mjs pacing
@@ -58,10 +63,10 @@ refused by default, planned before it acts, and provable without touching a live
 - [x] G11: the CLI lists the catalog, plans without acting, refuses writes through its real interface, and points sign-in at api-anything
   CHECK: node scripts/verify-gates.mjs cli
   EXPECT: cli gate verification passed
-  EVIDENCE: automatic-evidence=v1; definition-sha256=3294cec901d963383df8221f0a310122751ae75333b991989a22756c9baa80f8; exit=0; EXPECT=matched; output-sha256=608307326d28ea22317043a335b4d5f34e7311e77d5b323ce34aba3a235b9f0d; output-bytes=105; shell=/bin/sh; cwd=/Users/saiduttaabhishekdash/linkedin-automator; path=b93c3fbfaca3/30 entries
+  EVIDENCE: automatic-evidence=v1; definition-sha256=3294cec901d963383df8221f0a310122751ae75333b991989a22756c9baa80f8; exit=0; EXPECT=matched; output-sha256=78fccb0be186644151ae8b2b1317d23bfe76587236ea1208d3c1e0fccd5aa862; output-bytes=103; shell=/bin/sh; cwd=/Users/saiduttaabhishekdash/linkedin-automator; path=b93c3fbfaca3/30 entries
 
 - [x] G12: the claim "nothing here has been run against a live LinkedIn account" is still true, and no document implies otherwise
-  EVIDENCE: Reviewed by hand on 2026-10-16. Every test either binds the engine port to the in-memory fake in test/fixtures/engine.ts or drives api-anything's `--dry` against a temporary API_ANYTHING_HOME created per test and removed after; `--dry` builds a request and never sends it. No test file reaches the network. The only live-capable path is the adapter's `call`, and no test invokes it with a real session. Every CLI demo run during this session used `ops`, `plan`, `discover`, or `run --dry`; bare `run` was deliberately not executed because it would issue real reads. docs/HANDOFF.md states the same in "What is verified vs not" and nothing elsewhere claims live verification.
+  EVIDENCE: Reviewed by hand on 2026-10-16. Every test either binds the engine port to the in-memory fake in test/fixtures/engine.ts or drives api-anything's `--dry` against a temporary API_ANYTHING_HOME created per test and removed after; `--dry` builds a request and never sends it. No test file reaches the network. Inspected directly: every `client.call(` in test/ is on a client constructed with an injected fake `caller`, and test/engine.integration.test.ts contains 0 calls and 4 previews. The only live-capable path is the adapter's default `call`, and no test invokes it with a real session. Every CLI demo run during this session used `ops`, `plan`, `discover`, or `run --dry`; bare `run` was deliberately not executed because it would issue real reads, and `doctor` (which performs exactly one live read when invoked) was exercised only through tests against the fake. docs/HANDOFF.md states the same in "What is verified vs not" and nothing elsewhere claims live verification.
 
 - [x] G13: the handoff log names, for each finding, how it was established, and its unverified list matches reality
   EVIDENCE: Reviewed by hand on 2026-10-16. docs/HANDOFF.md records F1-F14, and each finding names its basis as a specific upstream file, a command whose output is quoted, or a direct probe (for example F5 quotes the `--dry` probe output, and F6 quotes stdout and stderr separately). The file ends with an explicit verified/unverified split and an ordered next-action list. The unverified list was cross-checked against the code: the three write operations in src/ops/writes.ts are `verified: false` with no spec entry, test/specs.test.ts asserts the pinned spec declares zero write operations, and no Voyager write request shape exists anywhere in the repository.

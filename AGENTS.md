@@ -127,6 +127,12 @@ state, a dry-run planner, a confirming executor, and a CLI.
 - **Writes are guilty until proven requested.** Invite, message and post operations are
   `readOnly: false`. They must be refused unless permission is threaded through explicitly, must be
   previewable with `--dry` before any send, and must never be retried when delivery is ambiguous.
+- **A write must be sendable only from an allow-listed account.** The account guard is checked
+  before every other write gate, for one reason: an accidental write from the operator's personal
+  profile is the most expensive mistake this system can make. An empty allow-list permits nothing.
+  Live verification therefore happens on a throwaway account — see `docs/TESTING.md`.
+- **No credential is ever handed over in conversation.** A session lives in `API_ANYTHING_HOME`.
+  Share a path, never a cookie value: an `li_at` value *is* the account until it expires.
 - **No credentials in specs, args, or logs.** Cookie and CSRF handling stays inside api-anything's
   `slots`/`ref` mechanism. If a secret would land in a spec file or an audit record, that is a bug.
 - **Respect human pace.** Pacing defaults come from LinkedIn's own invitation allowances, and the
@@ -163,7 +169,8 @@ for the other: the ledger decides whether the work is done, the plan explains wh
   candidate operation specs.
 - `specs/AGENTS.md` — the pinned read spec, and why there is no write spec.
 - `test/AGENTS.md` — the test suite layout, fixtures and the no-network rule.
-- `docs/AGENTS.md` — research, architecture, the discovery runbook, and the findings/handoff log.
+- `docs/AGENTS.md` — research, architecture, the discovery runbook, the live testing procedure,
+  and the findings/handoff log.
 - `scripts/AGENTS.md` — the verification oracles the acceptance gates run.
 
 `GATES.md` (unlazy acceptance ledger) and `PLAN.md` (scope plan) live at the repository root.

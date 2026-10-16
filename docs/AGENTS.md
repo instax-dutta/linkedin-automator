@@ -11,6 +11,9 @@ and the procedure for discovering a new LinkedIn operation.
   limits, and LinkedIn's own constraints (auth shape, allowances, ToS posture).
 - `ARCHITECTURE.md` — how the layers fit together and where each responsibility sits.
 - `DISCOVERY.md` — the runbook for turning browser evidence into a verified operation spec.
+- `TESTING.md` — the two kinds of testing (offline automatically, live by hand), the throwaway
+  account, session isolation, the four gates on a write, and how to hand over a session without
+  passing a credential through a chat.
 - `HANDOFF.md` — the **living** findings and handoff log. Append, never rewrite. Every finding
   names how it was established; the file ends with an explicit verified/unverified split and
   ordered next actions. This is the first thing to read when resuming, and the first thing to

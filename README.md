@@ -41,18 +41,37 @@ npm run cli -- call getMe        # confirm which account was imported
 ## Use
 
 ```sh
+npm run cli -- doctor                    # session, account, and every read spec
 npm run cli -- ops                       # what exists, and what is verified
 npm run cli -- plan    --campaign c.json --leads l.json
 npm run cli -- run     --campaign c.json --leads l.json --dry   # preview every write
 npm run cli -- discover capture.har      # propose operations from browser evidence
 ```
 
+`doctor` is the pre-flight: it performs exactly **one** live read (`getMe`), tells you which account
+the session actually belongs to, says whether writes are permitted for that account, and renders
+every read operation without sending.
+
 A campaign is JSON: an id, where the audience came from, and ordered steps whose arguments may use
 `{{field}}` placeholders resolved from each lead. See `test/fixtures/campaign.json`.
 
-A write needs **three** things to run: an observed request shape, `--confirm`, and
-`LINKEDIN_AUTOMATOR_ALLOW_WRITES=true`. Pacing ceilings default to LinkedIn's practical
-invitation envelope and are configurable.
+A write needs **four** things to run, and each is a separate chance to stop:
+
+1. **an observed request shape** — the operation is `verified`, learned from real traffic;
+2. **the account guard** — the signed-in account is listed in `LINKEDIN_AUTOMATOR_ALLOWED_ACCOUNTS`.
+   Checked first, because it is the only gate that compares the identity actually signed in rather
+   than a flag someone set. An **empty list permits nothing**, so writes cannot reach your personal
+   profile by accident;
+3. **`LINKEDIN_AUTOMATOR_ALLOW_WRITES=true`**;
+4. **`--confirm`** on this run.
+
+Pacing ceilings default to LinkedIn's practical invitation envelope and are configurable.
+
+## Verifying against a real account
+
+Never on your primary profile. `docs/TESTING.md` covers the throwaway account, session isolation
+(do **not** import your everyday browser's session), the staged order, and how to hand a session to
+a helper by **path** rather than by value — an `li_at` cookie *is* the account until it expires.
 
 ## Layout
 

@@ -242,6 +242,73 @@ not by a test; the tests inject their own store.
   is exercised.
 - **The invitation numbers** — secondary sources, not LinkedIn documentation.
 
+## Session 2 — 2026-10-16 — preparing for live verification on a throwaway account
+
+The operator is creating a dedicated LinkedIn test account so the reads can be verified live. That
+intent exposed a gap worth closing first, plus the procedure to write down.
+
+### F15 — the missing gate was "which account am I?"
+
+Until this session a write needed three things: an observed shape, `LINKEDIN_AUTOMATOR_ALLOW_WRITES`,
+and `--confirm`. All three are satisfiable by configuration. None of them notices that the imported
+session belongs to the operator's **personal** profile, and the imported session is the everyday
+browser's session (F1, `sites/linkedin.md`) — so a mistaken test run would send real messages from
+the account that matters most.
+
+Added `src/automation/guard.ts`: a pure `decideAccount(signedInAs, allowed)` compared against the
+`publicIdentifier` returned by `getMe`. `LINKEDIN_AUTOMATOR_ALLOWED_ACCOUNTS` is the allow-list, and
+**an empty list permits nothing** — "no list" must never mean "no restriction". A write now needs
+all four gates, and the guard is evaluated **first**, because it is the only one that compares the
+identity actually signed in rather than a flag someone set.
+
+### F16 — a stricter gate made two older tests assert the wrong thing, on purpose
+
+Two existing tests broke when the guard landed, and both were fixed rather than worked around:
+
+- *"a write without confirmation is refused"* asserted the reason mentioned confirmation, but the
+  guard now refuses earlier with an account reason. It was given an allow-listed account so it still
+  isolates the confirmation gate it was written to protect.
+- *"running without --confirm"* ran out of canned engine responses because `run` now resolves the
+  signed-in account with one extra `getMe` before executing. Its fixture was updated to include it.
+
+Recorded because the second one is a silent behaviour change: **`run` now performs one `getMe`
+before executing a plan that contains writes.** That is a live read, and it is why bare `run` must
+not be used as a first experiment.
+
+### F17 — two more guessed test-count minimums were wrong, and the oracle caught both
+
+`verify-gates.mjs` failed with "only 19 tests passed, expected at least 20" and then "only 27",
+"expected at least 33". Both were my estimates rather than counts. This is the verifier doing its
+job: the correction is always to set the minimum to the measured count, never to lower it below
+one that would hide a removed test.
+
+### F18 — how a session gets handed over without a credential ever being shared
+
+`login --window` writes the session into `API_ANYTHING_HOME` on the operator's own machine. A
+collaborating session only needs that directory and the environment variable, so **no cookie value
+needs to pass through a chat** — hand over a path, never a value. A `li_at` value is a complete
+session for the account until it expires.
+
+Related hardening: `.gitignore` now excludes `*.har`, `*.saz`, `*.mitm`, `cookies.txt` and
+`.api-anything*/`, because captures and session directories hold live cookie values. The
+committed test fixture is re-included explicitly (`!test/fixtures/*.har`).
+
+### Added in session 2
+
+- `src/automation/guard.ts` — the account allow-list (G14).
+- `linkedin-automator doctor` — the pre-flight: **one** live `getMe`, then the guard decision, then
+  every read operation rendered without sending. A dead session exits 1 with api-anything's `next:`.
+- `run` now resolves the signed-in account before executing and reports it, so a live run says who
+  it is acting as *before* it starts rather than after it is refused.
+- `docs/TESTING.md` — the full live procedure: throwaway account, session isolation, the four gates,
+  the staged order (doctor → reads → pacing proof → dry run → one real write), and cleanup.
+
+### Still not verified
+
+Nothing changed here: no write endpoint has been observed, and no command in this session was
+pointed at a live account. The reads, the guard, the pacing and the dedup guarantee are ready to be
+verified for real the moment `docs/TESTING.md` steps 1-2 can run against the throwaway account.
+
 ## Next actions, in order
 
 1. **Observe one write.** Follow `docs/DISCOVERY.md` with a disposable browser to capture a real
