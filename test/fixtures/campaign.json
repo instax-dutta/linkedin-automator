@@ -1,0 +1,17 @@
+{
+  "id": "q4-outreach",
+  "leadSource": "searchPeople:rust engineer zurich",
+  "steps": [
+    {
+      "id": "look",
+      "op": "getProfile",
+      "args": { "publicId": "{{publicId}}" }
+    },
+    {
+      "id": "invite",
+      "op": "sendConnectionInvitation",
+      "args": { "profileId": "{{publicId}}" },
+      "delayMs": 60000
+    }
+  ]
+}

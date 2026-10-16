@@ -62,6 +62,40 @@ function parseVoyagerUrl(raw: string): { host: string; path: string } | undefine
   return { host: parsed.hostname, path: parsed.pathname };
 }
 
+/**
+ * Read requests out of a saved HAR 1.2 document.
+ *
+ * Purely offline: recorded URLs are read, never fetched. Anything that is not HAR 1.2 is refused
+ * rather than half-read, because a partially parsed capture would silently under-report what the
+ * page actually called.
+ */
+export function trafficFromHar(har: unknown): readonly TrafficRecord[] {
+  if (typeof har !== "object" || har === null) {
+    throw new Error("not a HAR document");
+  }
+  const log = (har as { log?: unknown }).log;
+  if (typeof log !== "object" || log === null) {
+    throw new Error("not a HAR document: no log object");
+  }
+  const { version, entries } = log as { version?: unknown; entries?: unknown };
+  if (version !== "1.2") {
+    throw new Error(`unsupported HAR version ${String(version)}; only HAR 1.2 is read`);
+  }
+  if (!Array.isArray(entries)) {
+    throw new Error("not a HAR document: log.entries is not an array");
+  }
+
+  const records: TrafficRecord[] = [];
+  for (const entry of entries) {
+    const request = (entry as { request?: unknown } | null)?.request;
+    if (typeof request !== "object" || request === null) continue;
+    const { method, url } = request as { method?: unknown; url?: unknown };
+    if (typeof method !== "string" || typeof url !== "string") continue;
+    records.push({ method, url });
+  }
+  return records;
+}
+
 /** `identity/dash/profiles` becomes `identityDashProfiles`. */
 export function candidateName(path: string): string {
   const trimmed = path.startsWith(VOYAGER_PREFIX)
