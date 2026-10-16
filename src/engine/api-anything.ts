@@ -141,8 +141,47 @@ interface DryRunOutput {
   ok?: unknown;
   dry?: unknown;
   request?: DryRunRequest;
+  error?: unknown;
   reason?: unknown;
   next?: unknown;
+}
+
+/**
+ * Build a useful message from a nonzero exit.
+ *
+ * The CLI reports the reason as JSON on stdout and the remediation hint as `next:` on stderr, so
+ * taking stderr alone would surface the hint while hiding the cause.
+ */
+function failureMessage(
+  stdout: string,
+  stderr: string,
+  exitCode: number,
+  input: OperationCall,
+): string {
+  let parsed: DryRunOutput | undefined;
+  try {
+    parsed = JSON.parse(stdout) as DryRunOutput;
+  } catch {
+    parsed = undefined;
+  }
+
+  const reason =
+    typeof parsed?.error === "string"
+      ? parsed.error
+      : typeof parsed?.reason === "string"
+        ? parsed.reason
+        : undefined;
+  const hintFromJson = typeof parsed?.next === "string" ? parsed.next : undefined;
+  const hintFromStderr = stderr.trim().replace(/^next:\s*/i, "") || undefined;
+  const hint = hintFromJson ?? hintFromStderr;
+
+  const base =
+    reason ??
+    stderr.trim() ??
+    stdout.trim() ??
+    `api-anything --dry failed for ${input.site}.${input.op} (exit ${exitCode})`;
+
+  return hint && !base.includes(hint) ? `${base} (next: ${hint})` : base;
 }
 
 function toPreview(
@@ -212,9 +251,7 @@ export function createApiAnythingClient(deps: ApiAnythingClientDeps = {}): Linke
       const argv = ["call", input.site, input.op, ...toArgv(input.args), "--dry"];
       const { exitCode, stdout, stderr } = await runCli(argv);
       if (exitCode !== 0) {
-        throw new Error(
-          (stderr.trim() || stdout.trim() || `api-anything --dry failed (exit ${exitCode})`),
-        );
+        throw new Error(failureMessage(stdout, stderr, exitCode, input));
       }
       let parsed: DryRunOutput;
       try {
@@ -223,8 +260,10 @@ export function createApiAnythingClient(deps: ApiAnythingClientDeps = {}): Linke
         throw new Error(`api-anything --dry did not return JSON for ${input.site}.${input.op}`);
       }
       if (parsed.ok === false) {
-        const reason = typeof parsed.reason === "string" ? parsed.reason : "preview refused";
-        throw new Error(reason);
+        throw new Error(
+          failureMessage(stdout, stderr, 0, input) ||
+            `api-anything refused to render ${input.site}.${input.op}`,
+        );
       }
       if (!parsed.request) {
         throw new Error(`api-anything --dry returned no request for ${input.site}.${input.op}`);
