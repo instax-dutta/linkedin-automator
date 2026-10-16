@@ -309,6 +309,42 @@ Nothing changed here: no write endpoint has been observed, and no command in thi
 pointed at a live account. The reads, the guard, the pacing and the dedup guarantee are ready to be
 verified for real the moment `docs/TESTING.md` steps 1-2 can run against the throwaway account.
 
+## Session 3 — 2026-10-16 — first handover attempt
+
+### F19 — the session was handed over as a value, through the channel the docs prohibit
+
+The first attempt at live verification pasted a full cookie export (including `li_at`,
+`JSESSIONID`, `bscookie`, `fptctx2` and `PLAY_SESSION`) into the conversation. That is the one thing
+`docs/TESTING.md` §3 says not to do, and the reason is not stylistic: a `li_at` value *is* the
+account until it expires, so anything that records the transcript is holding a working session.
+
+What was done about it:
+
+- the values were **not** written to disk, not used, and not committed;
+- verified afterwards: working tree clean, last commit unchanged, no session or cookie file in the
+  project, and no `AQED`-prefixed token anywhere in the repository. The only `AQED` matches are
+  *detector* regexes in `test/specs.test.ts`, `test/engine.integration.test.ts` and
+  `test/ree.discovery.test.ts` — patterns that assert the absence of a credential;
+- recommended remedy: sign out of all sessions on that account, which invalidates `li_at`, then
+  re-import locally. For a throwaway that has never been used, deleting it afterwards is also fine.
+
+The lesson to keep: **hand over a path, never a value.** `login --window` puts the session in
+`API_ANYTHING_HOME` on the operator's own machine and nothing needs to be transmitted at all.
+
+### F20 — a pre-existing session was already on this machine, and it is probably the personal one
+
+`~/.api-anything/` already existed before this project started: `sessions/linkedin.json` dated
+8 Oct, plus api-anything's own Chrome profile under `profile/`. Any command run without
+`API_ANYTHING_HOME` set will use that session.
+
+The consequence is worth stating plainly: **the default home is a personal account, so the
+isolated home is not a nicety.** The account guard still prevents writes from it (a personal
+handle will not be in `LINKEDIN_AUTOMATOR_ALLOWED_ACCOUNTS`), but a read would be performed as that
+account, and `doctor` would print its name. Always export `API_ANYTHING_HOME` first.
+
+Not yet done: the operator has not re-imported a test session, so steps 1-2 of `docs/TESTING.md`
+are still unrun. Nothing in this session was pointed at a live account.
+
 ## Next actions, in order
 
 1. **Observe one write.** Follow `docs/DISCOVERY.md` with a disposable browser to capture a real
