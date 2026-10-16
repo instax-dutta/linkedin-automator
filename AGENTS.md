@@ -101,7 +101,7 @@ state, a dry-run planner, a confirming executor, and a CLI.
 ## Ownership
 
 - This repo owns: operation specs, the campaign/automation logic, the REA discovery workflow, the
-  CLI, and documentation.
+  CLI, the verification oracles in `scripts/`, and documentation.
 - This repo does **not** own: request transport, auth, healing, or the browser tier (all
   `api-anything`), nor CDP/bundle/HAR analysis primitives (all `rea`). Changes to those belong
   upstream.
@@ -136,25 +136,35 @@ state, a dry-run planner, a confirming executor, and a CLI.
 ## Verification
 
 ```sh
-npm run check    # tsc over src and test, no emit
-npm test         # node:test via tsx, all tests, no network
-npm run build    # tsc -p tsconfig.build.json, emits dist/
+node scripts/verify-suite.mjs                       # the suite, plus required safety tests
+for g in engine safety pacing planner specs reads discovery cli; \
+  do node scripts/verify-gates.mjs "$g"; done       # one focused gate at a time
+node scripts/verify-typecheck.mjs                   # tsc over src and test, no emit
+node scripts/verify-build.mjs                       # build, then run the emitted CLI
 ```
 
-`GATES.md` holds the acceptance ledger for the current build. Run its checks through the `unlazy`
-gate-checker rather than by eye.
+Plain `npm test` is fine for iteration, but it proves less than it looks: a broken glob reports
+zero tests, zero failures and exit 0. When a claim depends on the suite, use the verifiers above —
+they fail on a disappearing suite, a missing named test, or a passing count that has dropped.
+
+`GATES.md` holds the acceptance ledger; run its checks through the `unlazy` gate-checker rather
+than by eye. `PLAN.md` records the scope inventory and the decomposition. Neither is a substitute
+for the other: the ledger decides whether the work is done, the plan explains what the work was.
 
 ## Child DOX Index
 
 - `src/AGENTS.md` — source root: library entry, CLI entry, configuration.
 - `src/engine/AGENTS.md` — the `LinkedInClient` port and the api-anything adapter behind it.
-- `src/ops/AGENTS.md` — the typed LinkedIn operation catalog (reads and writes).
+- `src/ops/AGENTS.md` — the typed LinkedIn operation catalog (five verified reads, three
+  unverified write intents).
 - `src/automation/AGENTS.md` — pacing governor, dedup/state store, campaign planner, dry-run
-  planner and the confirming executor.
+  preview and the confirming executor.
 - `src/ree/AGENTS.md` — the REA-driven discovery workflow that turns browser evidence into
   candidate operation specs.
-- `specs/AGENTS.md` — authored api-anything site specs for LinkedIn (read and write).
+- `specs/AGENTS.md` — the pinned read spec, and why there is no write spec.
 - `test/AGENTS.md` — the test suite layout, fixtures and the no-network rule.
-- `docs/AGENTS.md` — research notes, architecture and the discovery runbook.
+- `docs/AGENTS.md` — research, architecture, the discovery runbook, and the findings/handoff log.
+- `scripts/AGENTS.md` — the verification oracles the acceptance gates run.
 
 `GATES.md` (unlazy acceptance ledger) and `PLAN.md` (scope plan) live at the repository root.
+`docs/HANDOFF.md` is the running findings and handoff log — read it before resuming work.

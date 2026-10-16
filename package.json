@@ -21,12 +21,14 @@
   "files": [
     "dist",
     "specs",
-    "AGENTS.md"
+    "AGENTS.md",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "check": "tsc -p tsconfig.json",
     "test": "node --import tsx --test \"test/**/*.test.ts\"",
+    "verify": "node scripts/verify-suite.mjs",
     "cli": "tsx src/cli.ts"
   },
   "keywords": [

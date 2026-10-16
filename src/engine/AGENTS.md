@@ -9,8 +9,9 @@ tested without a browser, a session, or a network call.
 
 - `client.ts` — the `LinkedInClient` port: the interface the automation layer depends on. Also the
   result/error types it speaks in.
-- `api-anything.ts` — the production adapter: the only file that imports `api-anything`.
-- `errors.ts` — mapping api-anything's failure classes onto this project's error taxonomy.
+- `api-anything.ts` — the production adapter: the only file that imports `api-anything`. It also
+  owns the failure-class mapping, because classifying an upstream error is part of translating
+  upstream's vocabulary and belongs next to the translation rather than in a module of its own.
 
 ## Local Contracts
 
@@ -27,6 +28,8 @@ tested without a browser, a session, or a network call.
 
 - The adapter is thin and faithless: it does not retry, re-heal, or reinterpret. api-anything
   already owns the tier ladder, healing and write guard; duplicating that is a defect.
+- On a nonzero CLI exit the cause is on stdout as JSON and the remediation hint is `next:` on
+  stderr. Report the cause and append the hint; preferring stderr alone hides what went wrong.
 - Thread `allowWrites` through explicitly. The adapter must default to refusing writes.
 - Surface `truncated` and `healed` rather than discarding them — the operator needs both.
 - Keep the port small enough that an in-memory fake is trivial to write.

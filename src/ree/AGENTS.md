@@ -8,11 +8,11 @@ documented instead of guessed.
 
 ## Ownership
 
-- `rea.ts` — the driver for the `rea` CLI: runs the browser/bundle/network capture commands and
-  returns their parsed Evidence.
-- `candidates.ts` — turns Evidence into candidate operations: endpoint URLs, methods, likely
-  parameters, and a first-draft api-anything spec.
-- `spec-draft.ts` — renders candidates as spec JSON that `parseSite()` accepts.
+- `rea.ts` — the driver for the `rea` CLI: chooses the command, runs it, and returns its parsed
+  Evidence with the evidence id intact.
+- `candidates.ts` — turns evidence into candidate operations (URL, method, read/write, provenance,
+  confidence), reads requests out of a saved HAR 1.2 document, and renders a draft site spec that
+  `parseSite()` accepts.
 
 ## Local Contracts
 
@@ -22,9 +22,9 @@ documented instead of guessed.
 - Discovery output is a **draft**. Nothing discovered here is promoted to `specs/` or `src/ops/`
   without human review, because a guessed endpoint on a production account is a real action.
 - Candidates carry their provenance: which REA command, which capture, which artifact digest.
-- Capability probes aggregate the capabilities REA ships that are known to be usable offline
-  (no browser required) and report them honestly, so a candidate can be attached to the strongest
-  available evidence source.
+- Only the offline paths are implemented: bundle analysis and saved-capture reading need no
+  account. The live CDP surfaces stay in the runbook (`docs/DISCOVERY.md`) for an operator to run,
+  because attaching to a live browser is not something a test may do.
 
 ## Work Guidance
 

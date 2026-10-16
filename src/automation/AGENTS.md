@@ -12,12 +12,13 @@ permitted.
   LinkedIn's invitation allowances and per-scope budgets.
 - `store.ts` — dedup and durable state: who has been contacted, which step of which sequence ran,
   and when.
-- `campaign.ts` — the campaign model and sequence planner: audiences, ordered steps, delays,
-  stop conditions and rendering of a template with lead data.
-- `dryrun.ts` — the planner that expands a campaign into the exact pending actions *without*
-  executing them, including a byte-level request preview for writes.
-- `runner.ts` — the executor: consumes a plan, consults the governor and store, applies the
-  confirmation gate, and records an audit trail.
+- `campaign.ts` — the campaign model and the planner: lead templates, ordered steps, delays, and
+  `planCampaign`, which expands a campaign into concrete actions without performing any of them.
+  The plan carries the budget arithmetic (`usageAfter`) so its own sums are checkable.
+- `runner.ts` — the executor, and the dry-run: `executePlan` consumes a plan, consults the
+  confirmation gate and the store, and records the audit trail; `previewPlan` renders the exact
+  request each writable step would send and sends nothing. Both read the same `Plan`, which is
+  what keeps a preview from diverging from the real run.
 
 ## Local Contracts
 
