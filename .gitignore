@@ -1,0 +1,18 @@
+node_modules/
+dist/
+coverage/
+*.log
+
+# Local secrets and per-operator config
+.env
+.env.*
+!.env.example
+linkedin-automator.config.json
+state/
+
+# unlazy dispatch state and hook bookkeeping
+.unlazy/
+.unlazy-hook-state.json
+.claude/settings.local.json
+
+.DS_Store
