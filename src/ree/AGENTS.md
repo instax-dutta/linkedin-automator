@@ -16,9 +16,10 @@ documented instead of guessed.
 
 ## Local Contracts
 
-- REA is invoked as an external process (`npx rea-agents@latest …` or an installed `rea`), never
-  reimplemented. Parsing its JSON output is this folder's job; performing CDP or bundle analysis
-  is not.
+- REA is invoked as an external process (`npx rea-agents@6.5.0 …` or an installed `rea`), never
+  reimplemented. The release is pinned in `DEFAULT_REA_COMMAND` so an unpinned package cannot
+  change what runs; `command` overrides it deliberately. Parsing its JSON output is this folder's
+  job; performing CDP or bundle analysis is not.
 - Discovery output is a **draft**. Nothing discovered here is promoted to `specs/` or `src/ops/`
   without human review, because a guessed endpoint on a production account is a real action.
 - Candidates carry their provenance: which REA command, which capture, which artifact digest.

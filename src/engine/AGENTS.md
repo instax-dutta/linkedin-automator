@@ -12,6 +12,10 @@ tested without a browser, a session, or a network call.
 - `api-anything.ts` — the production adapter: the only file that imports `api-anything`. It also
   owns the failure-class mapping, because classifying an upstream error is part of translating
   upstream's vocabulary and belongs next to the translation rather than in a module of its own.
+- `session-health.ts` — reads api-anything's stored session to report a jar that has lost its login
+  cookies, and restores a signed-in jar that a failed call's self-heal replaced. It reads and writes
+  the documented home layout (`<home>/sessions/<site>.json`) with `node:fs` and **must not import
+  the package**, so the rule above still holds for the API surface.
 
 ## Local Contracts
 
@@ -23,6 +27,11 @@ tested without a browser, a session, or a network call.
   preview, write permission, and a caller-supplied operation catalogue.
 - api-anything's failure classes are preserved verbatim (`auth`, `rate`, `blocked`, `drift`,
   `input`, `refused`, `error`) so the operator sees upstream's own vocabulary and `next` hint.
+- Reading api-anything's home layout is allowed only in `session-health.ts`. It reports by default;
+  its one write is `protectSession`, which runs a call and, if the call cost a signed-in jar its
+  login cookies, writes back the exact bytes it read. It never repairs a jar that was already
+  broken, never invents cookies, and never substitutes for a call: a missing or unparseable session
+  file returns `undefined`, leaving api-anything's own auth failure to speak.
 
 ## Work Guidance
 
@@ -33,6 +42,9 @@ tested without a browser, a session, or a network call.
 - Thread `allowWrites` through explicitly. The adapter must default to refusing writes.
 - Surface `truncated` and `healed` rather than discarding them — the operator needs both.
 - Keep the port small enough that an in-memory fake is trivial to write.
+- When a check needs the vendor's on-disk state, read the path and return `undefined` for anything
+  unreadable. Reporting a plausible-looking health value from a file that failed to parse is worse
+  than reporting nothing.
 
 ## Verification
 

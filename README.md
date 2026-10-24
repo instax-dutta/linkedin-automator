@@ -13,14 +13,18 @@ and durable state, a dry-run planner, a confirming executor, and a CLI.
 
 ## Status, honestly
 
-- Five **read** operations work: `getMe`, `getProfile`, `getCompany`, `searchPeople`,
-  `searchCompanies`.
+- Five **read** operations are declared. `getMe`, `getProfile` and `getCompany` have answered a
+  real account at tier 1; `searchPeople` and `searchCompanies` are verified offline (request
+  rendering and the pinned spec) because the borrowed test session was revoked before they could
+  answer. `docs/HANDOFF.md` F26 records that, rather than rounding it up to "works".
 - Three **write** intents are declared and **deliberately un-runnable**:
   `sendConnectionInvitation`, `sendMessage`, `createPost`. No Voyager write request has been
   observed, and a write shape recalled from memory would be both unverifiable and permanently
   drifting. The executor refuses them. `docs/DISCOVERY.md` is how one becomes real.
-- **Nothing here has ever been run against a live LinkedIn account.** The suite is entirely
-  offline. See `docs/HANDOFF.md`.
+- The suite is entirely offline. Live calls have been made by hand against a test account in an
+  isolated `API_ANYTHING_HOME`; `docs/HANDOFF.md` records every one, including the sessions that
+  were revoked and the one time a session was handed over incorrectly. **No write has ever been
+  attempted.**
 
 ## Install
 
@@ -91,3 +95,7 @@ a helper by **path** rather than by value — an `li_at` cookie *is* the account
 LinkedIn's terms restrict automated access. This project imports *your* session, paces like a human,
 defaults every write to dry-run, refuses writes without explicit confirmation, and does not solve
 CAPTCHAs or impersonate a TLS fingerprint. Whether and how you use it is your responsibility.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

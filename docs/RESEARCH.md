@@ -196,9 +196,11 @@ discovery workflow demonstrable here.
 - REA's own skill is emphatic: separate **observations, inferences and unknowns**, cite Evidence
   IDs, and never imply static analysis observed execution.
 
-**Install/run.** `npx rea-agents@latest <command>` or a globally installed `rea`. The offline
-static-JavaScript path needs no native engine and no MCP registration. MCP setup registers it with
-a coding agent, but the CLI is sufficient for scripting.
+**Install/run.** The driver pins `npx rea-agents@6.5.0 <command>` (the release surveyed here) rather
+than `@latest`, so a third party cannot change what executes between runs; pass `command` to try
+another release deliberately. A globally installed `rea` also works. The offline static-JavaScript
+path needs no native engine and no MCP registration. MCP setup registers it with a coding agent,
+but the CLI is sufficient for scripting.
 
 ---
 

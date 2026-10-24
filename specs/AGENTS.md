@@ -43,6 +43,9 @@ There is deliberately **no write spec**. See below.
   fields the automation layer consumes.
 - Record provenance for each operation so a maintainer knows whether it was observed live or
   inferred from a bundle.
+- Promoting the first write flips `test/specs.test.ts`'s "the spec declares no write operation"
+  assertion. Change that test in the same commit, to assertions about the new operation's shape —
+  never delete it without a replacement.
 
 ## Verification
 

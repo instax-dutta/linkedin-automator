@@ -74,6 +74,39 @@ api-anything login linkedin --window
 
 `.api-anything-test/` is gitignored, along with `*.har`, `*.saz` and `cookies.txt`.
 
+### Why `--window` beats `--cookies`, measured
+
+Both routes import. Only one survives a failure. Verified on 2026-10-16 (`docs/HANDOFF.md` F21,
+F22):
+
+- **`--cookies` answered exactly one live call and then died.** The import reported
+  `loggedIn: true` with 16 cookies, and a live `getMe` replied `tier 1 in 479ms` as
+  `racer-cool-126519444`. Within a minute every call returned
+  `auth: HTTP 403 with login markers: CSRF check failed`, and a raw `fetch` with the same cookies
+  returned `302` to a sign-in page. So the session was rejected, not the tooling. A jar exported
+  out of a browser that is *still signed in* is a session LinkedIn can revoke for being used from a
+  second client.
+- **A failed call replaces the stored jar.** api-anything's self-heal swaps the stored session for
+  its browser profile's cookies. A `--cookies` import has no matching profile, so one failure turns
+  16 cookies (with `li_at` and `JSESSIONID`) into 4 browser-only ones — and every later call then
+  fails as though the *account* were at fault. Silent, and it took watching the session file to
+  find.
+- **`--window` keeps the session inside the isolated profile:** nothing shared with your everyday
+  browser, nothing transmitted. It launches its own Chrome window; if the machine's default browser
+  is Opera GX, that browser's first tab is not navigable and the command aborts before LinkedIn
+  loads (HANDOFF F29). Force Chrome with `API_ANYTHING_BROWSER=chrome` rather than importing the
+  default browser.
+
+`doctor` now names that state for you, before it makes its call:
+
+```
+stored session: 4 cookies, missing li_at, JSESSIONID
+  a failed call replaces the stored session with its browser profile's cookies; re-import before trusting this run: api-anything login linkedin --window
+```
+
+If you see those lines, the jar is no longer a session: re-import before reading anything into
+whatever the call reports next.
+
 ### About handing over credentials
 
 **You should not need to send a login token over the chat, and this project is designed so you
@@ -134,13 +167,16 @@ npm run cli -- doctor
 ```
 
 `doctor` performs exactly **one live read** (`getMe`) and renders the rest without sending. It
-prints three things you must actually read:
+prints four things you must actually read:
 
+- **a downgraded stored session**, if there is one — see §3. It is printed before the call, because
+  a replaced jar is exactly what makes the call fail;
 - **which account is signed in** — if this is not the throwaway, stop and fix the session;
 - **whether writes are permitted** for that account;
 - **each read operation, rendered** — which proves the five specs resolve before you rely on them.
 
-A dead session exits 1 with api-anything's own `next:` hint. The usual fix is `login` again.
+A dead session exits 1 with api-anything's own `next:` hint. The usual fix is `login` again — and
+after a `--cookies` import, check §3 before assuming the account is the problem.
 
 ### Step 2 — the reads, live
 
@@ -179,7 +215,9 @@ LINKEDIN_AUTOMATOR_INVITES_PER_DAY=1 npm run cli -- plan \
 ```
 
 The second invitation must appear in the plan as blocked with a daily-limit reason, and nothing
-should be sent. Then unset the override.
+should be sent. Then unset the override. The governor replays records from the state file, so an
+earlier run's invitations count against the ceiling too; use a fresh `LINKEDIN_AUTOMATOR_STATE_DIR`
+if you want a clean budget for a repeat of this step.
 
 ### Step 4 — a dry run
 

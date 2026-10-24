@@ -14,10 +14,10 @@ and the procedure for discovering a new LinkedIn operation.
 - `TESTING.md` — the two kinds of testing (offline automatically, live by hand), the throwaway
   account, session isolation, the four gates on a write, and how to hand over a session without
   passing a credential through a chat.
-- `HANDOFF.md` — the **living** findings and handoff log. Append, never rewrite. Every finding
-  names how it was established; the file ends with an explicit verified/unverified split and
-  ordered next actions. This is the first thing to read when resuming, and the first thing to
-  update before stopping.
+- `HANDOFF.md` — the **living** findings and handoff log. Append, and correct in place with a
+  labelled amendment rather than rewriting or deleting. Every finding names how it was established;
+  the file ends with an explicit verified/unverified split and ordered next actions. This is the
+  first thing to read when resuming, and the first thing to update before stopping.
 
 ## Local Contracts
 
@@ -36,6 +36,11 @@ and the procedure for discovering a new LinkedIn operation.
 - **Append to `HANDOFF.md` as you go**, not at the end: a finding recorded when it is discovered
   keeps its evidence; one reconstructed later loses it. A finding without a stated basis is a
   guess and must be labelled one.
+- New findings are appended; a claim that has since become false is corrected **in place**, with a
+  dated, labelled amendment that keeps the original wording above it. Never delete the old claim —
+  but never leave it standing unmarked either, because appending a contradiction further down
+  leaves the false version as the first thing a later reader sees. (F19 carries one such
+  amendment.)
 - When a finding changes what is verified, update the `What is verified vs not` section in the
   same edit. That section is what a later session will trust.
 - Prefer tables and concrete commands over prose.

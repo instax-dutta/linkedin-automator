@@ -8,15 +8,15 @@ whether they write. Everything else refers to operations by name through this ca
 ## Ownership
 
 - `types.ts` — operation descriptors and the argument/result types for each operation.
-- `reads.ts` — read-only operations: `getMe`, `getProfile`, `getCompany`, `searchPeople`,
-  `searchCompanies`, plus the enrolled-connection and experience reads this project adds.
+- `reads.ts` — the five read-only operations shipped by api-anything: `getMe`, `getProfile`,
+  `getCompany`, `searchPeople`, `searchCompanies`.
 - `writes.ts` — write operations: connection invitations, direct messages, and post publishing.
 - `index.ts` — the assembled catalog lookup used by the automation layer and the CLI.
 
 ## Local Contracts
 
-- Each operation declares: name, kind (`read` | `write`), site spec it belongs to, required args,
-  optional args, and the shape of the data returned.
+- Each operation declares: name, kind (`read` | `write`), its site, a summary, its parameters
+  (type, required, description, optional guard) and whether its request shape is verified.
 - A `write` operation is `readOnly: false` in the spec and must be listed in `writes.ts`. A read
   must never be registered as a write, and vice versa.
 - Operation names are stable identifiers. Renaming one is a breaking change and must move in the
@@ -41,9 +41,10 @@ npm run check
 npm test
 ```
 
-The ops gate: every descriptor's spec parses via api-anything's `parseSite()`, every declared
-`write` operation is refused by the executor when permission is absent, and every argument guard
-rejects the input it claims to reject.
+The ops gate: every **read** descriptor has a matching operation in the pinned spec, which parses
+via api-anything's `parseSite()`; every declared `write` operation is refused by the executor
+unless all four write gates are open; and every argument guard rejects the input it claims to
+reject. Write intents deliberately have no spec until one is observed.
 
 ## Child DOX Index
 

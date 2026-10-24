@@ -18,8 +18,10 @@ behaviour lives in the four child modules.
 
 - Modules under `src/` never import from `test/`.
 - `index.ts` re-exports; it defines nothing itself.
-- `cli.ts` and `config.ts` are the only files allowed to read `process.env` or the filesystem for
-  configuration. Everything else takes its dependencies as arguments.
+- Only `config.ts` reads configuration from `process.env`; `cli.ts` hands it the environment.
+  Other filesystem access is owned by the module that needs it: `automation/store.ts` for the
+  audit trail, `engine/session-health.ts` for api-anything's home. Nothing else reads either as
+  configuration.
 - Relative imports carry an explicit `.js` extension.
 
 ## Work Guidance

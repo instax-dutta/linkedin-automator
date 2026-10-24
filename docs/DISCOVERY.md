@@ -132,16 +132,20 @@ the receipt — a 200 is an acknowledgement, not proof of delivery.
 
 ## Step 4 — Promote it into this repo
 
-1. Add the operation to `specs/linkedin.read.json` or `specs/linkedin.write.json`.
+1. Add the operation to `specs/linkedin.json`.
 2. Declare it in `src/ops/reads.ts` or `src/ops/writes.ts` with its arguments, guards and return
    shape, and record its provenance.
 3. A write must be registered as a `write`; a read must never be.
-4. The test suite asserts the spec parses via `parseSite()`, its parameters appear in its request
-   template, no credential literal is present, and every `readOnly: false` operation is listed as
-   a write.
+4. Update `test/specs.test.ts` deliberately in the same change. It currently asserts the pinned
+   spec declares **no** write operation; that assertion is the honest state while no write shape
+   is known, not a permanent rule. The replacement should assert the new operation's method, path,
+   parameter placement, `readOnly` value, and absence of credential literals.
 
 If you could not verify the request, **do not put it in `specs/`**. Leave it as a draft from
 `src/ree/` with its provenance and an unverified marker, so the executor can refuse it.
+
+Finally update `src/ops/writes.ts` to set `verified: true` only after the live replay answers, and
+record the date and the observed traffic in `docs/HANDOFF.md`.
 
 ---
 

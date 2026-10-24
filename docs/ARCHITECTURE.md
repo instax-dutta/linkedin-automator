@@ -46,9 +46,8 @@ which know about time, storage or randomness are the ones that receive them as a
 | `src/ops/` | which operations exist, their arguments, their guards | transport, pacing |
 | `src/automation/pacing.ts` | spacing and budgets | what the work is |
 | `src/automation/store.ts` | what already happened | when it is allowed to happen |
-| `src/automation/campaign.ts` | audiences, ordered steps, template rendering | execution |
-| `src/automation/dryrun.ts` | expanding a campaign into pending actions | sending anything |
-| `src/automation/runner.ts` | confirmation gate, ordering, audit trail | deciding the plan |
+| `src/automation/campaign.ts` | audiences, ordered steps, template rendering, planning | execution |
+| `src/automation/runner.ts` | confirmation gate, scheduled waits, audit trail, dedup re-check, `previewPlan` | deciding the plan |
 | `src/ree/` | turning browser evidence into candidate specs | promoting them without review |
 
 ## The write path
@@ -57,10 +56,12 @@ A write taking the safest possible route through the system:
 
 ```text
 campaign step (write kind)
-  → planner emits a write plan entry with a confirmation requirement
+  → planner checks the store (already contacted?) and the governor (budget left?),
+    then emits a write plan entry with a confirmation requirement
     → dry-run: render the exact request, redact credentials, print, send nothing
       → operator confirms (or the entry stays pending)
-        → runner checks the store (already contacted?) and the governor (budget left?)
+        → runner checks the account guard, re-checks the store (a plan can be stale),
+          then waits for the entry's scheduled time
           → runner calls the port with allowWrites
             → adapter calls api-anything with allowWrites
               → api-anything sends ONCE; ambiguous outcomes are reported, never retried
@@ -77,12 +78,12 @@ vocabulary and its `next` hint:
 
 | class | this project's response |
 |---|---|
-| `auth` | stop the run; tell the operator to re-run `api-anything login linkedin` |
-| `rate` | stop the run; do not retry; the governor is wrong and must be adjusted |
-| `blocked` | stop the run; the operator clears the challenge by hand |
+| `auth` | stop the whole run; tell the operator to re-run `api-anything login linkedin` |
+| `rate` | stop the whole run; do not retry; the governor is wrong and must be adjusted |
+| `blocked` | stop the whole run; the operator clears the challenge by hand |
 | `drift` | surface it; the fix is re-learning the operation, not retrying |
 | `input` | usually a bad argument; fix the argument, never heal |
 | `refused` | a write arrived without permission; fix the caller, not the operation |
-| `error` | at most one retry, then report |
+| `error` | report it; a later run may retry a read, never a write whose delivery is ambiguous |
 
 No component retries a write whose delivery is ambiguous, at any layer.

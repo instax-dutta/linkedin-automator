@@ -17,17 +17,18 @@ permitted.
 - `campaign.ts` — the campaign model and the planner: lead templates, ordered steps, delays, and
   `planCampaign`, which expands a campaign into concrete actions without performing any of them.
   The plan carries the budget arithmetic (`usageAfter`) so its own sums are checkable.
-- `runner.ts` — the executor, and the dry-run: `executePlan` consumes a plan, consults the
-  confirmation gate and the store, and records the audit trail; `previewPlan` renders the exact
-  request each writable step would send and sends nothing. Both read the same `Plan`, which is
-  what keeps a preview from diverging from the real run.
+- `runner.ts` — the executor, and the dry-run: `executePlan` consumes a plan, re-checks the store,
+  waits for each entry's scheduled time, consults the confirmation gate, stops the run on
+  `auth`/`rate`/`blocked`, and records the audit trail; `previewPlan` renders the exact request each
+  writable step would send and sends nothing. Both read the same `Plan`, which is what keeps a
+  preview from diverging from the real run.
 
 ## Local Contracts
 
 - Nothing in this folder imports `api-anything`. It depends on the `LinkedInClient` port only.
-- `pacing.ts` and `store.ts` are pure and injectable: no ambient clock, no ambient randomness,
-  no direct filesystem access. Time and storage arrive as arguments so behaviour is deterministic
-  under test.
+- `pacing.ts` is pure: no ambient clock, no randomness, no I/O; time arrives as an argument.
+  `store.ts` defines the port plus an in-memory and a file-backed implementation; the file path is
+  an argument, and the store reads no clock.
 - Every action that could reach LinkedIn is expressed as a plan entry first. `runner.ts` never
   invents work; it only executes an existing plan.
 - A write plan entry carries a confirmation requirement. The runner refuses to execute a write
@@ -38,7 +39,11 @@ permitted.
 - A write that is refused records a `skipped` outcome with the reason and spends nothing, so it can
   legitimately be attempted again once the blocking gate is satisfied.
 - State transitions are append-only. Re-running a campaign must not repeat a step the store
-  already records as done.
+  already records as done, and the executor re-checks this itself rather than trusting a plan that
+  may be stale.
+- Pacing is reconstructed from the audit trail (`usageFromRecords`) for every run. A governor that
+  starts at zero in each process cannot enforce a daily ceiling; a `record` carries its `op` so the
+  replay can attribute the spend.
 
 ## Work Guidance
 
