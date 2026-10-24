@@ -774,7 +774,8 @@ reporting, secret scanning with push protection, Dependabot alerts, Dependabot s
 and CodeQL default setup. The first CodeQL analysis succeeded and produced the two results in F39;
 both are fixed, and the latest analysis has no open alerts. `SECURITY.md` records the private
 disclosure route (GitHub advisories), what is in scope, the offline-testing rule, and the explicit
-instruction never to send a session value.
+instruction never to send a session value. `.github/dependabot.yml` adds a weekly npm
+version-update schedule, separate from the security-update feature `gh secure` enabled.
 
 ### Current state
 

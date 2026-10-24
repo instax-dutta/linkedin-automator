@@ -1,0 +1,24 @@
+# Weekly version updates for the npm dependency graph.
+#
+# Security updates are already enabled on the repository; this file adds scheduled version updates.
+# The api-anything dependency is a git URL pinned to a commit, which Dependabot cannot bump, so it
+# is updated deliberately by re-pinning it in package.json.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      npm-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
