@@ -1,7 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { planCampaign, renderArgs, type Campaign, type Lead } from "../src/automation/campaign.js";
+import {
+  planCampaign,
+  renderArgs,
+  usageFromRecords,
+  type Campaign,
+  type Lead,
+} from "../src/automation/campaign.js";
 import { createMemoryStore, type ActionRecord } from "../src/automation/store.js";
 import { emptyUsage, DEFAULT_PACING, type Usage } from "../src/automation/pacing.js";
 
@@ -124,6 +130,67 @@ test("the governor stops invitations at the daily ceiling and says why", async (
     2,
     "a spent invitation budget must not block messages",
   );
+});
+
+test("the budget is rebuilt from the audit trail, so a second run cannot start from zero", async () => {
+  const spent: ActionRecord = {
+    leadId: "someone-else",
+    campaignId: "an-earlier-run",
+    stepId: "invite",
+    op: "sendConnectionInvitation",
+    outcome: "executed",
+    at: NOON.toISOString(),
+  };
+  const usage = usageFromRecords([spent], NOON);
+
+  const { entries } = await plan({
+    usage,
+    config: { ...DEFAULT_PACING, invitation: { perDay: 1, perWeek: 1, perMonth: 1 } },
+  });
+
+  const invite = entries.find((entry) => entry.stepId === "invite");
+  assert.match(invite?.skipReason ?? "", /daily limit/i);
+  assert.equal(usage.invitation.day, 1);
+});
+
+test("a write recorded yesterday still spends the week and month, but not today", () => {
+  const yesterday = new Date(NOON.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const spent: ActionRecord = {
+    leadId: "someone-else",
+    campaignId: "an-earlier-run",
+    stepId: "invite",
+    op: "sendConnectionInvitation",
+    outcome: "executed",
+    at: yesterday,
+  };
+
+  const usage = usageFromRecords([spent], NOON);
+
+  assert.equal(usage.invitation.day, 0);
+  assert.equal(usage.invitation.week, 1);
+  assert.equal(usage.invitation.month, 1);
+});
+
+test("a skipped or failed write spends no pacing budget when the trail is replayed", () => {
+  const base: ActionRecord = {
+    leadId: "lead-1",
+    campaignId: "q4-outreach",
+    stepId: "invite",
+    op: "sendConnectionInvitation",
+    outcome: "executed",
+    at: NOON.toISOString(),
+  };
+
+  const usage = usageFromRecords(
+    [
+      { ...base, outcome: "skipped" },
+      { ...base, outcome: "failed" },
+      { ...base, outcome: "unconfirmed" },
+    ],
+    NOON,
+  );
+
+  assert.equal(usage.invitation.day, 1, "only the ambiguous write may have been delivered");
 });
 
 test("a plan never spends more than the budget, so its running total is authoritative", async () => {

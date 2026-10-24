@@ -182,6 +182,104 @@ test("a failure carries api-anything's own remediation hint through to the opera
   assert.equal(outcomes[0]?.next, "api-anything login linkedin");
 });
 
+test("a step the store already spent is skipped even when the plan did not know it", async () => {
+  const client = createFakeEngine([]);
+  const store = createMemoryStore([
+    {
+      leadId: "lead-1",
+      campaignId: "q4-outreach",
+      stepId: "invite",
+      op: "sendConnectionInvitation",
+      outcome: "executed",
+      at: AT,
+    },
+  ]);
+
+  const outcomes = await executePlan([entry()], {
+    client,
+    store,
+    confirm: () => true,
+    account: "ana-test",
+    allowedAccounts: ["ana-test"],
+  });
+
+  assert.equal(outcomes[0]?.status, "skipped");
+  assert.match(outcomes[0]?.reason ?? "", /already done/i);
+  assert.equal(client.calls.length, 0, "a stale plan must not repeat a spent step");
+});
+
+test("a blocking failure stops the run instead of hammering the site with the rest", async () => {
+  const client = createFakeEngine([fails("rate", "throttled")]);
+  const store = createMemoryStore();
+
+  const outcomes = await executePlan(
+    [entry({ stepId: "a" }), entry({ stepId: "b" })],
+    {
+      client,
+      store,
+      confirm: () => true,
+      account: "ana-test",
+      allowedAccounts: ["ana-test"],
+    },
+  );
+
+  assert.equal(outcomes[0]?.status, "failed");
+  assert.equal(outcomes[1]?.status, "skipped");
+  assert.match(outcomes[1]?.reason ?? "", /stopped/i);
+  assert.equal(client.calls.length, 1, "nothing may be sent after a rate or auth failure");
+});
+
+test("a step waits for its scheduled time, so a campaign's delay is honoured at execution", async () => {
+  const client = createFakeEngine([ok({}), ok({})]);
+  const store = createMemoryStore();
+  const base = Date.parse(AT);
+  let elapsed = 0;
+  const slept: number[] = [];
+
+  const outcomes = await executePlan(
+    [
+      entry({ stepId: "a", kind: "read", op: "getMe", requiresConfirmation: false, at: AT }),
+      entry({
+        stepId: "b",
+        kind: "read",
+        op: "getMe",
+        requiresConfirmation: false,
+        at: new Date(base + 5_000).toISOString(),
+      }),
+    ],
+    {
+      client,
+      store,
+      now: () => new Date(base + elapsed),
+      sleep: async (ms) => {
+        slept.push(ms);
+        elapsed += ms;
+      },
+    },
+  );
+
+  assert.deepEqual(outcomes.map((outcome) => outcome.status), ["executed", "executed"]);
+  assert.deepEqual(slept, [5_000]);
+});
+
+test("a scheduled time already past runs immediately rather than sleeping", async () => {
+  const client = createFakeEngine([ok({})]);
+  const store = createMemoryStore();
+  const base = Date.parse(AT);
+
+  await executePlan(
+    [entry({ kind: "read", op: "getMe", requiresConfirmation: false, at: AT })],
+    {
+      client,
+      store,
+      now: () => new Date(base + 60_000),
+      sleep: async () => {
+        throw new Error("must not sleep for a time that has already passed");
+      },
+    },
+  );
+});
+
 test("every entry produces an outcome, so a run cannot silently drop work", async () => {
   const client = createFakeEngine([ok({}), ok({})]);
   const store = createMemoryStore();

@@ -144,17 +144,36 @@ export function loadCampaign(text: string): Campaign {
     throw new Error('campaign needs a non-empty "steps" array');
   }
 
-  return { id, leadSource, steps: steps.map(readStep) };
+  const parsed = steps.map(readStep);
+  const seen = new Set<string>();
+  for (const step of parsed) {
+    if (seen.has(step.id)) {
+      throw new Error(`campaign has duplicate step id "${step.id}"; ids key the dedup record`);
+    }
+    seen.add(step.id);
+  }
+
+  return { id, leadSource, steps: parsed };
 }
 
 export function loadLeads(text: string): readonly Lead[] {
   const parsed = parseJson(text, "leads");
   if (!Array.isArray(parsed)) throw new Error("leads must be a JSON array");
 
-  return parsed.map((value, index) => {
+  const leads = parsed.map((value, index) => {
     const lead = asObject(value, `lead ${index}`);
     const { id } = lead;
     if (typeof id !== "string" || id === "") throw new Error(`lead ${index} needs a string "id"`);
     return { ...lead, id } as Lead;
   });
+
+  const seen = new Set<string>();
+  for (const lead of leads) {
+    if (seen.has(lead.id)) {
+      throw new Error(`duplicate lead id "${lead.id}"; ids key the dedup record`);
+    }
+    seen.add(lead.id);
+  }
+
+  return leads;
 }

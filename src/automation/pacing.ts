@@ -23,8 +23,6 @@ export interface PacingConfig {
   readonly invitation: SurfaceBudget;
   readonly message: SurfaceBudget;
   readonly post: SurfaceBudget;
-  /** Gap between successive requests, matching api-anything's own per-site tier-1 pacing. */
-  readonly minGapMs: number;
 }
 
 export const DEFAULT_PACING: PacingConfig = {
@@ -33,7 +31,6 @@ export const DEFAULT_PACING: PacingConfig = {
   // Messaging limits are equally unpublished. Deliberately well under any plausible ceiling.
   message: { perDay: 100, perWeek: 400, perMonth: 1200 },
   post: { perDay: 3, perWeek: 10, perMonth: 30 },
-  minGapMs: 1000,
 };
 
 export interface SurfaceUsage {
@@ -117,6 +114,16 @@ function rollOver(usage: Usage, now: Date): Usage {
     message: roll(usage.message),
     post: roll(usage.post),
   };
+}
+
+/**
+ * The same usage seen through `now`'s window: counters whose window has expired drop to zero.
+ *
+ * Callers that replay history need this after the replay, because the last record may be older
+ * than the `now` the next decision will use.
+ */
+export function rollForward(usage: Usage, now: Date): Usage {
+  return rollOver(usage, now);
 }
 
 /** Record one action. Returns a new usage; never mutates the argument. */

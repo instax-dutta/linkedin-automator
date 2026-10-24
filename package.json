@@ -3,6 +3,15 @@
   "version": "0.1.0",
   "description": "LinkedIn automation built on api-anything (execution engine) and rea (reverse-engineering): prospecting, outreach campaigns and post scheduling.",
   "license": "MIT",
+  "author": "instax-dutta",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instax-dutta/linkedin-automator.git"
+  },
+  "homepage": "https://github.com/instax-dutta/linkedin-automator#readme",
+  "bugs": {
+    "url": "https://github.com/instax-dutta/linkedin-automator/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=22.13.0"
@@ -41,7 +50,7 @@
     "mcp"
   ],
   "dependencies": {
-    "api-anything": "github:goodnight000/api-anything"
+    "api-anything": "github:goodnight000/api-anything#1788526eb54ff1f0d8bd7373bd5fdcac143ad7ad"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",

@@ -27,7 +27,7 @@ export type ReaRunner = (argv: string[]) => Promise<ReaRunResult>;
 
 export interface ReaClientDeps {
   run?: ReaRunner;
-  /** The executable to invoke. Defaults to `rea`, falling back to the published package. */
+  /** The executable to invoke. Overrides the pinned package below. */
   command?: readonly string[];
 }
 
@@ -37,6 +37,15 @@ export interface ReaClient {
   /** Read a saved capture. Recorded URLs are never fetched. */
   inspectNetworkCapture(file: string, format: "har" | "saz" | "mitmproxy"): Promise<ReaResult>;
 }
+
+/**
+ * The REA release this driver executes.
+ *
+ * Pinned rather than `@latest`: spawning an unpinned package on every run hands a third party the
+ * ability to change what executes, and makes the same analysis non-reproducible. Override with
+ * `command` to try another release deliberately.
+ */
+export const DEFAULT_REA_COMMAND: readonly string[] = ["npx", "-y", "rea-agents@6.5.0"];
 
 function defaultRunner(command: readonly string[]): ReaRunner {
   return (argv) =>
@@ -92,7 +101,7 @@ function parseResult(argv: string[], run: ReaRunResult): ReaResult {
 }
 
 export function createReaClient(deps: ReaClientDeps = {}): ReaClient {
-  const command = deps.command ?? ["npx", "-y", "rea-agents@latest"];
+  const command = deps.command ?? DEFAULT_REA_COMMAND;
   const run = deps.run ?? defaultRunner(command);
 
   const invoke = async (argv: string[]): Promise<ReaResult> =>

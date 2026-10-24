@@ -1,5 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,6 +26,8 @@ function capture() {
       stderr: (line: string) => err.push(line),
       cwd: ROOT,
       now: new Date("2026-10-16T12:00:00.000Z"),
+      // Scheduled waits are proven in the runner suite; here they must not spend real time.
+      sleep: async () => {},
       // An empty environment keeps the dangerous switches off unless a test asks for them.
       env: {} as Record<string, string | undefined>,
     },
@@ -207,6 +212,145 @@ test("doctor reports a dead session with its remediation hint and does not prete
   assert.equal(code, 1);
   assert.match(out.join("\n") + err.join("\n"), /session expired/);
   assert.match(out.join("\n") + err.join("\n"), /api-anything login linkedin/);
+});
+
+// --- a failed call can replace the stored session, so its login cookies are checked ----------------
+
+/** A home whose stored LinkedIn session holds exactly these cookie names. */
+function homeWithSession(cookieNames: readonly string[]): string {
+  const home = mkdtempSync(path.join(tmpdir(), "linkedin-automator-home-"));
+  mkdirSync(path.join(home, "sessions"), { recursive: true });
+  writeFileSync(
+    path.join(home, "sessions", "linkedin.json"),
+    JSON.stringify({
+      cookies: cookieNames.map((name) => ({
+        name,
+        value: "redacted",
+        domain: ".linkedin.com",
+        path: "/",
+        expires: -1,
+      })),
+    }),
+  );
+  return home;
+}
+
+test("doctor warns when the stored session has lost its login cookies", async () => {
+  // What a self-heal leaves behind after a `--cookies` import: browser-only cookies, no credential.
+  const { deps, out } = doctorDeps({ API_ANYTHING_HOME: homeWithSession(["bcookie", "lidc"]) });
+  const code = await runCli(["doctor"], deps);
+  const text = out.join("\n");
+
+  assert.equal(code, 0);
+  assert.match(text, /missing li_at/);
+  assert.match(text, /re-import/i);
+});
+
+test("doctor says nothing about the stored session while its login cookies are intact", async () => {
+  const { deps, out } = doctorDeps({
+    API_ANYTHING_HOME: homeWithSession(["li_at", "JSESSIONID", "bcookie"]),
+  });
+  await runCli(["doctor"], deps);
+
+  assert.doesNotMatch(out.join("\n"), /missing li_at/);
+});
+
+test("doctor tolerates a home with no stored session at all", async () => {
+  const home = mkdtempSync(path.join(tmpdir(), "linkedin-automator-home-"));
+  const { deps, out } = doctorDeps({ API_ANYTHING_HOME: home });
+  const code = await runCli(["doctor"], deps);
+
+  assert.equal(code, 0);
+  assert.doesNotMatch(out.join("\n"), /missing li_at/);
+});
+
+// --- flag handling: a typo must not turn a preview into a live run --------------------------------
+
+test("a boolean flag never swallows the next word, so --dry stays a dry run", async () => {
+  const { deps, out } = capture();
+  const client = createFakeEngine([]);
+  const code = await runCli(
+    [
+      "run",
+      "--campaign",
+      "test/fixtures/campaign.json",
+      "--leads",
+      "test/fixtures/leads.json",
+      "--dry",
+      "extra",
+    ],
+    { ...deps, client, store: createMemoryStore() },
+  );
+
+  assert.equal(code, 0);
+  assert.equal(client.calls.length, 0, "a stray word after --dry must not turn it into a real run");
+  assert.match(out.join("\n"), /dry run/i);
+});
+
+test("an unknown flag is refused instead of being silently ignored", async () => {
+  const { deps, err } = capture();
+  const client = createFakeEngine([]);
+  const code = await runCli(
+    [
+      "run",
+      "--campaign",
+      "test/fixtures/campaign.json",
+      "--leads",
+      "test/fixtures/leads.json",
+      "--dryy",
+    ],
+    { ...deps, client, store: createMemoryStore() },
+  );
+
+  assert.equal(code, 2);
+  assert.equal(client.calls.length, 0);
+  assert.match(err.join("\n"), /dryy|unknown flag/i);
+});
+
+test("the executable reports a missing file as one error line, not a stack trace", () => {
+  const run = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      "tsx",
+      "src/cli.ts",
+      "plan",
+      "--campaign",
+      "does-not-exist.json",
+      "--leads",
+      "test/fixtures/leads.json",
+    ],
+    { cwd: ROOT, encoding: "utf8" },
+  );
+
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /^error: /m);
+});
+
+test("planning counts writes already in the audit trail, so pacing survives the process", async () => {
+  const { deps, out } = capture();
+  const store = createMemoryStore([
+    {
+      leadId: "an-earlier-lead",
+      campaignId: "an-earlier-run",
+      stepId: "invite",
+      op: "sendConnectionInvitation",
+      outcome: "executed",
+      at: "2026-10-16T09:00:00.000Z",
+    },
+  ]);
+
+  const code = await runCli(
+    ["plan", "--campaign", "test/fixtures/campaign.json", "--leads", "test/fixtures/leads.json"],
+    {
+      ...deps,
+      store,
+      env: { LINKEDIN_AUTOMATOR_INVITES_PER_DAY: "1" },
+    },
+  );
+
+  assert.equal(code, 0);
+  assert.match(out.join("\n"), /daily limit/i);
 });
 
 test("a run refuses every write when the signed-in account is not allow-listed", async () => {

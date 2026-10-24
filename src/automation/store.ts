@@ -14,6 +14,8 @@ export interface ActionRecord {
   readonly leadId: string;
   readonly campaignId: string;
   readonly stepId: string;
+  /** The operation that produced the record: the audit trail and pacing replay both need it. */
+  readonly op?: string;
   readonly outcome: ActionOutcome;
   /** ISO-8601 timestamp. */
   readonly at: string;

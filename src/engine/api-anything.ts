@@ -18,6 +18,7 @@ import type {
   OperationCall,
   RequestPreview,
 } from "./client.js";
+import { protectSession } from "./session-health.js";
 
 /** api-anything's `CallResult`, mirrored so the adapter can be exercised without the package. */
 export interface ApiAnythingCallResult {
@@ -52,7 +53,12 @@ export interface ApiAnythingClientDeps {
   caller?: Caller;
   /** Injected CLI runner, used for previews. Defaults to spawning the pinned CLI. */
   runCli?: CliRunner;
-  /** `API_ANYTHING_HOME` override: where the operator's session and installed specs live. */
+  /**
+   * `API_ANYTHING_HOME` override: where previews and session protection look.
+   *
+   * The default caller reads `API_ANYTHING_HOME` itself, so pass this only alongside the same
+   * value in that variable; otherwise a preview and the call it describes could use two homes.
+   */
   home?: string;
 }
 
@@ -175,10 +181,12 @@ function failureMessage(
   const hintFromStderr = stderr.trim().replace(/^next:\s*/i, "") || undefined;
   const hint = hintFromJson ?? hintFromStderr;
 
+  // `||`, not `??`: an empty string is a missing message. Falling through to the next source (and
+  // finally to a message naming the operation) beats raising an Error with no text at all.
   const base =
-    reason ??
-    stderr.trim() ??
-    stdout.trim() ??
+    reason ||
+    stderr.trim() ||
+    stdout.trim() ||
     `api-anything --dry failed for ${input.site}.${input.op} (exit ${exitCode})`;
 
   return hint && !base.includes(hint) ? `${base} (next: ${hint})` : base;
@@ -220,11 +228,11 @@ export function createApiAnythingClient(deps: ApiAnythingClientDeps = {}): Linke
         allowWrites: opts.allowWrites ?? false,
         maxTier: opts.maxTier,
       };
-      const result = await caller(
-        input.site,
-        input.op,
-        { ...(input.args ?? {}) },
-        engineOpts,
+      // api-anything's self-heal swaps the stored jar for its browser profile's cookies on a
+      // failure; for an imported session that drops the login cookies and logs the account out.
+      // Snapshot the jar around the call and put a signed-in one back if the call consumed it.
+      const { value: result, restored } = await protectSession(input.site, deps.home, () =>
+        caller(input.site, input.op, { ...(input.args ?? {}) }, engineOpts),
       );
 
       if (result.ok) {
@@ -241,7 +249,11 @@ export function createApiAnythingClient(deps: ApiAnythingClientDeps = {}): Linke
       return {
         ok: false,
         class: classify(result.class),
-        reason: result.reason ?? "api-anything reported a failure without a reason",
+        reason:
+          (result.reason ?? "api-anything reported a failure without a reason") +
+          (restored
+            ? "; its self-heal replaced the stored session, which was then restored"
+            : ""),
         ms: result.ms,
         ...(result.next !== undefined ? { next: result.next } : {}),
       };

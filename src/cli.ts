@@ -8,14 +8,20 @@
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { createApiAnythingClient } from "./engine/api-anything.js";
 import type { LinkedInClient } from "./engine/client.js";
 import { findOperation, listOperations, validateArgs, OperationInputError } from "./ops/index.js";
-import { emptyUsage } from "./automation/pacing.js";
 import { decideAccount } from "./automation/guard.js";
 import { createFileStore, type AutomationStore } from "./automation/store.js";
-import { planCampaign, LINKEDIN_SITE, type Lead } from "./automation/campaign.js";
+import {
+  planCampaign,
+  usageFromRecords,
+  LINKEDIN_SITE,
+  type Lead,
+} from "./automation/campaign.js";
+import { readSessionHealth } from "./engine/session-health.js";
 import { executePlan, previewPlan } from "./automation/runner.js";
 import { discoverCandidates, trafficFromHar } from "./ree/candidates.js";
 import { loadCampaign, loadConfig, loadLeads } from "./config.js";
@@ -27,6 +33,8 @@ export interface CliDeps {
   readonly stderr?: (line: string) => void;
   readonly cwd?: string;
   readonly now?: Date;
+  /** Injected so a test can prove a scheduled delay is honoured without spending it. */
+  readonly sleep?: (ms: number) => Promise<void>;
   readonly env?: Readonly<Record<string, string | undefined>>;
 }
 
@@ -51,6 +59,21 @@ interface Parsed {
   readonly flags: Readonly<Record<string, string | boolean>>;
 }
 
+/**
+ * Flags that are switches, never `name value` pairs.
+ *
+ * Without this, `--dry extra` would parse as `dry="extra"`, fail the `=== true` test, and turn a
+ * preview into a live run. A flag that can change meaning because of the word after it is a
+ * safety defect on the write path.
+ */
+const BOOLEAN_FLAGS: ReadonlySet<string> = new Set(["dry", "confirm"]);
+
+/** Every flag each command accepts. Anything else is a typo, and a typo must not be ignored. */
+const ALLOWED_FLAGS: Readonly<Record<string, readonly string[]>> = {
+  plan: ["campaign", "leads"],
+  run: ["campaign", "leads", "dry", "confirm"],
+};
+
 function parse(argv: readonly string[]): Parsed {
   const positionals: string[] = [];
   const flags: Record<string, string | boolean> = {};
@@ -61,6 +84,10 @@ function parse(argv: readonly string[]): Parsed {
       continue;
     }
     const name = token.slice(2);
+    if (BOOLEAN_FLAGS.has(name)) {
+      flags[name] = true;
+      continue;
+    }
     const next = argv[index + 1];
     if (next !== undefined && !next.startsWith("--")) {
       flags[name] = next;
@@ -96,18 +123,29 @@ export async function runCli(argv: readonly string[], deps: CliDeps = {}): Promi
     return 2;
   };
 
+  for (const name of Object.keys(flags)) {
+    const allowed = command !== undefined ? (ALLOWED_FLAGS[command] ?? []) : [];
+    if (!allowed.includes(name)) {
+      return fail(`unknown flag "--${name}"${command ? ` for ${command}` : ""}\n\n${USAGE}`);
+    }
+  }
+
   const readText = (relative: string): Promise<string> =>
     readFile(path.resolve(cwd, relative), "utf8");
 
-  const engineFor = (): LinkedInClient => deps.client ?? createApiAnythingClient({
-    ...(loadConfig(env).apiAnythingHome ? { home: loadConfig(env).apiAnythingHome! } : {}),
-  });
+  let configCache: ReturnType<typeof loadConfig> | undefined;
+  const configFor = (): ReturnType<typeof loadConfig> => (configCache ??= loadConfig(env));
+
+  const engineFor = (): LinkedInClient => {
+    if (deps.client) return deps.client;
+    const home = configFor().apiAnythingHome;
+    return createApiAnythingClient(home !== undefined ? { home } : {});
+  };
 
   // Campaign state has to outlive the process, or a re-run would repeat steps already taken.
   const storeFor = (): AutomationStore => {
     if (deps.store) return deps.store;
-    const config = loadConfig(env);
-    return createFileStore(path.resolve(cwd, config.stateDir, "state.jsonl"));
+    return createFileStore(path.resolve(cwd, configFor().stateDir, "state.jsonl"));
   };
 
   switch (command) {
@@ -148,6 +186,18 @@ export async function runCli(argv: readonly string[], deps: CliDeps = {}): Promi
     case "doctor": {
       const config = loadConfig(env);
       const client = engineFor();
+
+      // Reported before the call, not after: a downgraded jar is exactly what makes the call fail,
+      // and the early return on that failure would otherwise hide the reason for it.
+      const health = readSessionHealth(LINKEDIN_SITE, config.apiAnythingHome);
+      if (health !== undefined && health.missing.length > 0) {
+        out(
+          `stored session: ${health.cookieNames.length} cookies, missing ${health.missing.join(", ")}`,
+        );
+        out(
+          "  a failed call replaces the stored session with its browser profile's cookies; re-import before trusting this run: api-anything login linkedin --window",
+        );
+      }
 
       const me = await client.call<Record<string, unknown>>({
         site: LINKEDIN_SITE,
@@ -208,26 +258,42 @@ export async function runCli(argv: readonly string[], deps: CliDeps = {}): Promi
         return fail(USAGE);
       }
 
-      const config = loadConfig(env);
+      const config = configFor();
       const campaign = loadCampaign(await readText(campaignPath));
       const leads: readonly Lead[] = loadLeads(await readText(leadsPath));
+      const store = storeFor();
+      const now = deps.now ?? new Date();
 
+      // Pacing is replayed from the durable trail, not started at zero. A fresh allowance per
+      // process would make the ceiling unenforceable across re-runs of the same campaign.
+      const usage = usageFromRecords(await store.all(), now);
       const plan = await planCampaign(campaign, leads, {
-        store: storeFor(),
-        usage: emptyUsage(deps.now ?? new Date()),
-        now: deps.now ?? new Date(),
+        store,
+        usage,
+        now,
         config: config.pacing,
       });
 
-      const runnable = plan.entries.filter((entry) => entry.skipReason === undefined);
+      const blocked = plan.entries.filter((entry) => entry.skipReason !== undefined).length;
+      const unverified = plan.entries.filter(
+        (entry) =>
+          entry.skipReason === undefined && entry.kind === "write" && !entry.verified,
+      ).length;
       out(
-        `plan ${campaign.id}: ${plan.entries.length} entries, ${runnable.length} runnable, ` +
-          `${plan.entries.length - runnable.length} blocked`,
+        `plan ${campaign.id}: ${plan.entries.length} entries, ` +
+          `${plan.entries.length - blocked - unverified} runnable, ` +
+          `${unverified} unverified, ${blocked} blocked`,
       );
       for (const entry of plan.entries) {
+        // "runnable" must not claim an unverified write can run: the executor will refuse it.
+        const state =
+          entry.skipReason ??
+          (entry.kind === "write" && !entry.verified
+            ? "unverified — would be refused"
+            : "runnable");
         out(
           `  ${entry.leadId.padEnd(10)} ${entry.stepId.padEnd(10)} ${entry.kind.padEnd(5)} ` +
-            `${entry.op.padEnd(26)} ${entry.skipReason ?? "runnable"}`,
+            `${entry.op.padEnd(26)} ${state}`,
         );
       }
 
@@ -272,12 +338,13 @@ export async function runCli(argv: readonly string[], deps: CliDeps = {}): Promi
       const confirmed = flags.confirm === true && config.allowWrites;
       const outcomes = await executePlan(plan, {
         client,
-        store: storeFor(),
+        store,
         confirm: () => confirmed,
         allowUnverified: config.allowUnverified,
         allowedAccounts: config.allowedAccounts,
         ...(account !== undefined ? { account } : {}),
         ...(deps.now ? { now: () => deps.now! } : {}),
+        ...(deps.sleep ? { sleep: deps.sleep } : {}),
       });
 
       for (const outcome of outcomes) {
@@ -380,12 +447,19 @@ export async function runCli(argv: readonly string[], deps: CliDeps = {}): Promi
 }
 
 async function main(): Promise<void> {
-  const code = await runCli(process.argv.slice(2));
-  process.exitCode = code;
+  try {
+    process.exitCode = await runCli(process.argv.slice(2));
+  } catch (error) {
+    // A missing campaign file or a malformed JSON document is an operator mistake, not a crash.
+    // Report it in one line instead of a stack trace that hides the path that was wrong.
+    process.stderr.write(`error: ${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 1;
+  }
 }
 
 const invokedDirectly =
-  process.argv[1] !== undefined && import.meta.url === `file://${path.resolve(process.argv[1])}`;
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 if (invokedDirectly) {
   void main();
 }

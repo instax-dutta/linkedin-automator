@@ -84,6 +84,36 @@ test("a malformed campaign is refused with a message that says what is wrong", (
   assert.throws(() => loadCampaign("not json"), /JSON/);
 });
 
+test("a campaign with two steps sharing an id is refused, because one would shadow the other", () => {
+  assert.throws(
+    () =>
+      loadCampaign(
+        JSON.stringify({
+          id: "q4",
+          leadSource: "x",
+          steps: [
+            { id: "invite", op: "sendConnectionInvitation", args: { profileId: "{{id}}" } },
+            { id: "invite", op: "sendConnectionInvitation", args: { profileId: "{{id}}" } },
+          ],
+        }),
+      ),
+    /duplicate step id/i,
+  );
+});
+
+test("leads with duplicate ids are refused, because dedup is keyed by id", () => {
+  assert.throws(
+    () =>
+      loadLeads(
+        JSON.stringify([
+          { id: "lead-1", publicId: "ana" },
+          { id: "lead-1", publicId: "bo" },
+        ]),
+      ),
+    /duplicate lead id/i,
+  );
+});
+
 test("leads must be an array of objects each carrying an id", () => {
   const leads = loadLeads(JSON.stringify([{ id: "a", publicId: "ana" }]));
   assert.equal(leads.length, 1);

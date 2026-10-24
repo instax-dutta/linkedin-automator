@@ -33,7 +33,7 @@ const GATES = {
       "test/automation.runner.test.ts",
       "test/automation.dryrun.test.ts",
     ],
-    minimum: 27,
+    minimum: 31,
   },
   pacing: {
     label: "invitation ceilings across day, ISO week and month",
@@ -43,7 +43,7 @@ const GATES = {
   planner: {
     label: "campaign expansion, idempotence and budget accounting",
     files: ["test/automation.planner.test.ts", "test/automation.store.test.ts"],
-    minimum: 19,
+    minimum: 22,
   },
   specs: {
     label: "pinned spec validity and absence of credentials or rotating ids",
@@ -58,12 +58,12 @@ const GATES = {
   discovery: {
     label: "candidate discovery and draft spec rendering",
     files: ["test/ree.discovery.test.ts", "test/ree.har.test.ts"],
-    minimum: 18,
+    minimum: 20,
   },
   cli: {
     label: "CLI surface, including the doctor pre-flight and its refusals",
     files: ["test/cli.test.ts", "test/config.test.ts"],
-    minimum: 24,
+    minimum: 33,
   },
 };
 

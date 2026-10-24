@@ -38,6 +38,11 @@ export interface ExecutionContext {
   readonly allowedAccounts?: readonly string[];
   /** Clock, injected so the audit trail is deterministic under test. */
   readonly now?: () => Date;
+  /**
+   * Wait between scheduled steps. Injected so a test can prove a delay is honoured without
+   * spending it, and so a library caller can choose a different scheduler.
+   */
+  readonly sleep?: (ms: number) => Promise<void>;
 }
 
 /**
@@ -72,8 +77,22 @@ async function runEntry(
   };
 
   if (entry.skipReason !== undefined) {
-    await ctx.store.append({ ...key, outcome: "skipped", at, note: entry.skipReason });
+    await ctx.store.append({
+      ...key,
+      op: entry.op,
+      outcome: "skipped",
+      at,
+      note: entry.skipReason,
+    });
     return { entry, status: "skipped", reason: entry.skipReason };
+  }
+
+  // A plan can be stale: it may have been built before an earlier run, or two runs may overlap.
+  // Re-checking here makes dedup the executor's guarantee rather than the planner's assumption.
+  if (await ctx.store.hasDone(key.leadId, key.campaignId, key.stepId)) {
+    const reason = "already done";
+    await ctx.store.append({ ...key, op: entry.op, outcome: "skipped", at, note: reason });
+    return { entry, status: "skipped", reason };
   }
 
   const isWrite = entry.kind === "write";
@@ -83,7 +102,13 @@ async function runEntry(
   if (isWrite) {
     const guard = decideAccount(ctx.account, ctx.allowedAccounts ?? []);
     if (!guard.ok) {
-      await ctx.store.append({ ...key, outcome: "skipped", at, note: guard.reason });
+      await ctx.store.append({
+        ...key,
+        op: entry.op,
+        outcome: "skipped",
+        at,
+        note: guard.reason,
+      });
       return { entry, status: "refused", reason: guard.reason };
     }
   }
@@ -91,7 +116,7 @@ async function runEntry(
   if (isWrite && !entry.verified && ctx.allowUnverified !== true) {
     const reason =
       "unverified operation: no observed request shape yet; see docs/DISCOVERY.md";
-    await ctx.store.append({ ...key, outcome: "skipped", at, note: reason });
+    await ctx.store.append({ ...key, op: entry.op, outcome: "skipped", at, note: reason });
     return { entry, status: "refused", reason };
   }
 
@@ -99,7 +124,7 @@ async function runEntry(
     const confirmed = ctx.confirm ? await ctx.confirm(entry) : false;
     if (!confirmed) {
       const reason = "write requires confirmation; nothing was sent";
-      await ctx.store.append({ ...key, outcome: "skipped", at, note: reason });
+      await ctx.store.append({ ...key, op: entry.op, outcome: "skipped", at, note: reason });
       return { entry, status: "refused", reason };
     }
   }
@@ -110,13 +135,13 @@ async function runEntry(
   );
 
   if (call.ok) {
-    await ctx.store.append({ ...key, outcome: "executed", at });
+    await ctx.store.append({ ...key, op: entry.op, outcome: "executed", at });
     return { entry, status: "executed", call };
   }
 
   const certainlyNotSent = !isWrite || CERTAINLY_NOT_SENT.has(call.class);
   const outcome = certainlyNotSent ? "failed" : "unconfirmed";
-  await ctx.store.append({ ...key, outcome, at, note: call.reason });
+  await ctx.store.append({ ...key, op: entry.op, outcome, at, note: call.reason });
   return {
     entry,
     status: certainlyNotSent ? "failed" : "unconfirmed",
@@ -126,14 +151,63 @@ async function runEntry(
   };
 }
 
+/**
+ * Failure classes that mean the site is refusing the run as a whole.
+ *
+ * Continuing after one of these does not just waste calls: it keeps knocking while LinkedIn has
+ * said no, which is how a session gets restricted. The remaining entries are recorded as skipped
+ * with the reason, so the audit trail still accounts for every one of them.
+ */
+const BLOCKING_FAILURES: ReadonlySet<string> = new Set(["auth", "rate", "blocked"]);
+
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+/** Honour a step's scheduled time. A plan whose time has passed runs immediately, not `delayMs` late. */
+async function waitForScheduledTime(entry: PlanEntry, ctx: ExecutionContext): Promise<void> {
+  const at = Date.parse(entry.at);
+  if (!Number.isFinite(at)) return;
+  const wait = at - (ctx.now?.() ?? new Date()).getTime();
+  if (wait > 0) await (ctx.sleep ?? defaultSleep)(wait);
+}
+
 export async function executePlan(
   plan: Plan | readonly PlanEntry[],
   ctx: ExecutionContext,
 ): Promise<readonly ExecutionOutcome[]> {
   const outcomes: ExecutionOutcome[] = [];
+  let stopped: string | undefined;
+
   for (const entry of entriesOf(plan)) {
-    outcomes.push(await runEntry(entry, ctx));
+    if (stopped !== undefined) {
+      const at = (ctx.now?.() ?? new Date()).toISOString();
+      await ctx.store.append({
+        leadId: entry.leadId,
+        campaignId: entry.campaignId,
+        stepId: entry.stepId,
+        op: entry.op,
+        outcome: "skipped",
+        at,
+        note: stopped,
+      });
+      outcomes.push({ entry, status: "skipped", reason: stopped });
+      continue;
+    }
+
+    if (entry.skipReason === undefined) await waitForScheduledTime(entry, ctx);
+    const outcome = await runEntry(entry, ctx);
+    outcomes.push(outcome);
+
+    if (outcome.call !== undefined && outcome.call.ok === false) {
+      if (BLOCKING_FAILURES.has(outcome.call.class)) {
+        stopped = `run stopped after ${outcome.call.class}: ${outcome.call.reason}`;
+      }
+    }
   }
+
   return outcomes;
 }
 

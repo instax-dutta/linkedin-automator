@@ -28,11 +28,18 @@ const REQUIRED_TESTS = [
   "the daily invitation allowance is refused at its limit, not beyond it",
   "a spent week refuses a fresh day, so the weekly ceiling is enforced independently of the day",
   "planning is idempotent: a step the store already spent is planned as skipped",
+  "the budget is rebuilt from the audit trail, so a second run cannot start from zero",
+  "a step the store already spent is skipped even when the plan did not know it",
+  "a blocking failure stops the run instead of hammering the site with the rest",
+  "a boolean flag never swallows the next word, so --dry stays a dry run",
   "a dry run previews each write and never reaches the engine",
   "credentials are never stored in a spec",
+  "the REA driver executes a pinned release rather than whatever is latest",
+  "doctor warns when the stored session has lost its login cookies",
+  "a failed call puts back the signed-in session its self-heal destroyed, and says so",
 ];
 
-const MINIMUM_TESTS = 120;
+const MINIMUM_TESTS = 150;
 
 function findTestFiles(dir) {
   const found = [];

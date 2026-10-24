@@ -47,6 +47,7 @@ export {
   decide as decidePacing,
   emptyUsage,
   record as recordUsage,
+  rollForward as rollUsageForward,
   type PacingConfig,
   type PacingDecision,
   type Surface,
@@ -66,6 +67,8 @@ export {
   LINKEDIN_SITE,
   planCampaign,
   renderArgs,
+  surfaceOf,
+  usageFromRecords,
   type Campaign,
   type CampaignStep,
   type Lead,
@@ -96,7 +99,13 @@ export {
   type TrafficRecord,
 } from "./ree/candidates.js";
 
-export { createReaClient, type ReaClient, type ReaResult, type ReaRunner } from "./ree/rea.js";
+export {
+  createReaClient,
+  DEFAULT_REA_COMMAND,
+  type ReaClient,
+  type ReaResult,
+  type ReaRunner,
+} from "./ree/rea.js";
 
 export {
   loadCampaign,

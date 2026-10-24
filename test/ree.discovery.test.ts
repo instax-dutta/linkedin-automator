@@ -9,7 +9,7 @@ import {
   toDraftSite,
   type DiscoveryInput,
 } from "../src/ree/candidates.js";
-import { createReaClient } from "../src/ree/rea.js";
+import { createReaClient, DEFAULT_REA_COMMAND } from "../src/ree/rea.js";
 
 const input: DiscoveryInput = {
   evidenceId: "ev-1",
@@ -109,6 +109,10 @@ test("a draft spec attaches a trigger so the shape is complete enough to review"
   for (const op of site.operations) {
     assert.match(op.trigger.url, /^https:\/\/www\.linkedin\.com\//);
   }
+});
+
+test("the REA driver executes a pinned release rather than whatever is latest", () => {
+  assert.deepEqual(DEFAULT_REA_COMMAND, ["npx", "-y", "rea-agents@6.5.0"]);
 });
 
 test("the REA driver shells out to the pinned CLI and returns its parsed evidence", async () => {

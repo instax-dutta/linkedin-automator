@@ -10,13 +10,15 @@ import { findOperation, validateArgs, OperationInputError } from "../ops/index.j
 import type { OperationKind } from "../ops/index.js";
 import {
   decide,
+  emptyUsage,
   record,
+  rollForward,
   DEFAULT_PACING,
   type PacingConfig,
   type Surface,
   type Usage,
 } from "./pacing.js";
-import type { AutomationStore } from "./store.js";
+import type { ActionRecord, AutomationStore } from "./store.js";
 
 /** Every operation in this project targets the one site. */
 export const LINKEDIN_SITE = "linkedin";
@@ -81,6 +83,39 @@ const SURFACE_BY_OP: Readonly<Record<string, Surface>> = {
   sendMessage: "message",
   createPost: "post",
 };
+
+/** Which budget an operation spends, if any. Reads have no published allowance. */
+export function surfaceOf(op: string): Surface | undefined {
+  return SURFACE_BY_OP[op];
+}
+
+/**
+ * Reconstruct the pacing budget from the durable audit trail.
+ *
+ * A governor that starts at zero in every process protects nothing: a second CLI invocation would
+ * get a fresh allowance and a retried campaign could exceed the very ceiling it checked. Only
+ * `executed` and `unconfirmed` spend budget, because only those may have reached LinkedIn.
+ *
+ * Records are replayed in timestamp order so a window boundary inside the history rolls the
+ * counters exactly as it would have live, then rolled forward to `now`. A record without `op`
+ * cannot be attributed to a surface and is ignored rather than guessed; those predate this field.
+ */
+export function usageFromRecords(records: readonly ActionRecord[], now: Date): Usage {
+  const ordered = [...records].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  let usage = emptyUsage(now);
+
+  for (const action of ordered) {
+    if (action.outcome !== "executed" && action.outcome !== "unconfirmed") continue;
+    if (action.op === undefined) continue;
+    const surface = surfaceOf(action.op);
+    if (surface === undefined) continue;
+    const at = new Date(action.at);
+    if (Number.isNaN(at.getTime())) continue;
+    usage = record(usage, surface, at);
+  }
+
+  return rollForward(usage, now);
+}
 
 export interface PlanEntry {
   readonly campaignId: string;
