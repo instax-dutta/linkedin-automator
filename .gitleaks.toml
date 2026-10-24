@@ -1,0 +1,14 @@
+# gitleaks configuration.
+#
+# The default `linkedin-client-id` rule matches the TypeScript type name `LinkedInClient`
+# in import lines. This repository has no LinkedIn OAuth client id. Allowlist that
+# identifier only, on the line where it is imported; the rule stays active everywhere else.
+#
+# Run:
+#   gitleaks git . --redact --verbose          # full history
+#   gitleaks dir . --redact --verbose          # working tree (respects .gitignore)
+
+[[allowlists]]
+description = "LinkedInClient is a type name, not a client id"
+regexTarget = "line"
+regexes = ['''import (type )?\{[^}]*LinkedInClient''']

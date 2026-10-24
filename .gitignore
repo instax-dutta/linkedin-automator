@@ -9,6 +9,13 @@ coverage/
 !.env.example
 linkedin-automator.config.json
 state/
+.npmrc
+cookies*.json
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
 
 # Captured traffic and per-account sessions: these hold live cookie values.
 *.har

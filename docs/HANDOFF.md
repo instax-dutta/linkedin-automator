@@ -741,9 +741,11 @@ sharing an id, made one record cover both, so the second could send again. `load
 ### Publication and secret scan
 
 - `gitleaks 8.30.1` over the full git history found one hit, the `linkedin-client-id` rule matching
-  import text (`LinkedInClient`, `LINKEDIN_SITE`) in `runner.ts`; it is a false positive, with no
-  credential in it. The publishable tree was also archived and scanned separately. No cookie,
-  token, key, `.api-anything*` directory, HAR, SAZ, `state/` or `dist/` is tracked.
+  the TypeScript type name `LinkedInClient` in an import; it is a false positive, with no
+  credential in it. `.gitleaks.toml` allowlists that line only, so the finding is documented rather
+  than silently suppressed. The publishable tree was also archived and scanned separately. No
+  cookie, token, key, `.api-anything*` directory, HAR, SAZ, `state/` or `dist/` is tracked, and
+  `.gitignore` now also covers `.npmrc`, cookie exports and key material.
 - The machine-generated evidence in `GATES.md` carried the operator's absolute home path; it is
   replaced with `<repo>`, with a note saying exactly that.
 - Added `LICENSE` (MIT), repository/homepage/bugs metadata, and a re-verification section in
