@@ -33,11 +33,20 @@ test("an operation name is derived from the Voyager path", () => {
   assert.equal(candidateName("/voyager/api/organization/companies"), "organizationCompanies");
 });
 
+test("leading slashes before the Voyager prefix are ignored", () => {
+  assert.equal(candidateName("///voyager/api/me"), "me");
+});
+
 test("only LinkedIn Voyager requests become candidates", () => {
-  const paths = discoverCandidates(input).map((c) => c.path);
+  const candidates = discoverCandidates(input);
+  const paths = candidates.map((c) => c.path);
   assert.equal(paths.includes("/voyager/api/me"), true);
   assert.equal(paths.some((p) => p.startsWith("/feed")), false);
-  assert.equal(paths.some((p) => p.includes("tracking.example.com")), false);
+  assert.equal(
+    candidates.some((c) => c.host === "tracking.example.com"),
+    false,
+    "a third-party capture host is not a LinkedIn candidate",
+  );
 });
 
 test("an endpoint seen twice is reported once", () => {

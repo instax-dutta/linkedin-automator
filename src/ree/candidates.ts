@@ -96,11 +96,27 @@ export function trafficFromHar(har: unknown): readonly TrafficRecord[] {
   return records;
 }
 
+/**
+ * Strip leading slashes without a regex.
+ *
+ * The path comes from an untrusted capture, and an anchored `^\/+` replacement is flagged as
+ * polynomial on adversarial input; a linear scan does the same job with no backtracking.
+ */
+function withoutLeadingSlashes(value: string): string {
+  let start = 0;
+  while (value[start] === "/") start += 1;
+  return value.slice(start);
+}
+
 /** `identity/dash/profiles` becomes `identityDashProfiles`. */
 export function candidateName(path: string): string {
-  const trimmed = path.startsWith(VOYAGER_PREFIX)
-    ? path.slice(VOYAGER_PREFIX.length)
-    : path.replace(/^\/+/, "");
+  // Collapse any run of leading slashes to the single slash the prefix expects.
+  const normalised = path.startsWith("/") ? `/${withoutLeadingSlashes(path)}` : path;
+  const trimmed = normalised.startsWith(VOYAGER_PREFIX)
+    ? normalised.slice(VOYAGER_PREFIX.length)
+    : normalised.startsWith("/")
+      ? normalised.slice(1)
+      : normalised;
   const parts = trimmed.split(/[^A-Za-z0-9]+/).filter((part) => part !== "");
   if (parts.length === 0) return "operation";
   return parts

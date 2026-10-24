@@ -58,7 +58,7 @@ const GATES = {
   discovery: {
     label: "candidate discovery and draft spec rendering",
     files: ["test/ree.discovery.test.ts", "test/ree.har.test.ts"],
-    minimum: 20,
+    minimum: 21,
   },
   cli: {
     label: "CLI surface, including the doctor pre-flight and its refusals",

@@ -39,7 +39,7 @@ const REQUIRED_TESTS = [
   "a failed call puts back the signed-in session its self-heal destroyed, and says so",
 ];
 
-const MINIMUM_TESTS = 150;
+const MINIMUM_TESTS = 151;
 
 function findTestFiles(dir) {
   const found = [];
