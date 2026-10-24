@@ -744,8 +744,9 @@ sharing an id, made one record cover both, so the second could send again. `load
   the TypeScript type name `LinkedInClient` in an import; it is a false positive, with no
   credential in it. `.gitleaks.toml` allowlists that line only, so the finding is documented rather
   than silently suppressed. The publishable tree was also archived and scanned separately. No
-  cookie, token, key, `.api-anything*` directory, HAR, SAZ, `state/` or `dist/` is tracked, and
-  `.gitignore` now also covers `.npmrc`, cookie exports and key material.
+  session directory, captured traffic, `state/` or `dist/` is tracked; the one tracked HAR is the
+  synthetic `test/fixtures/session.har`, whose request and response headers and cookies are empty.
+  `.gitignore` also covers `.npmrc`, cookie exports and key material.
 - The machine-generated evidence in `GATES.md` carried the operator's absolute home path; it is
   replaced with `<repo>`, with a note saying exactly that.
 - Added `LICENSE` (MIT), repository/homepage/bugs metadata, and a re-verification section in
