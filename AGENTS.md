@@ -177,4 +177,5 @@ for the other: the ledger decides whether the work is done, the plan explains wh
 `GATES.md` (unlazy acceptance ledger) and `PLAN.md` (scope plan) live at the repository root.
 `docs/HANDOFF.md` is the running findings and handoff log — read it before resuming work.
 `SECURITY.md` is the private disclosure policy; it never asks for a session value, only the fact
-that one was involved.
+that one was involved. `CONTRIBUTING.md` is the contributor-facing version of the offline loop and
+the write-safety rules.

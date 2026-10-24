@@ -776,6 +776,8 @@ both are fixed, and the latest analysis has no open alerts. `SECURITY.md` record
 disclosure route (GitHub advisories), what is in scope, the offline-testing rule, and the explicit
 instruction never to send a session value. `.github/dependabot.yml` adds a weekly npm
 version-update schedule, separate from the security-update feature `gh secure` enabled.
+`CONTRIBUTING.md` records the contributor setup, the test-first offline loop, the gate minimums,
+the four write gates and the secret-handling rules.
 
 ### Current state
 

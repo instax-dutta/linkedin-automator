@@ -97,6 +97,11 @@ LinkedIn's terms restrict automated access. This project imports *your* session,
 defaults every write to dry-run, refuses writes without explicit confirmation, and does not solve
 CAPTCHAs or impersonate a TLS fingerprint. Whether and how you use it is your responsibility.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). The short version: tests never touch LinkedIn, writes stay
+unconfirmed until all four gates are open, and every change lands with the test that protects it.
+
 ## Security
 
 Report a vulnerability privately through GitHub's advisory form — see [SECURITY.md](SECURITY.md).
