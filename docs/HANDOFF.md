@@ -658,7 +658,7 @@ what api-anything already does.
 
 A full review of the tree (design, function, complexity, tests, naming, comments, docs) found six
 behavioural defects and several documentation claims that were no longer true. Each fix had a test
-watched failing first. Suite: 135 → 151 tests, 15 files. No live call was made in this session.
+watched failing first. Suite: 135 → 152 tests, 15 files. No live call was made in this session.
 
 ### F33 — the pacing budget reset in every process
 
@@ -715,9 +715,10 @@ sharing an id, made one record cover both, so the second could send again. `load
 CodeQL default setup was enabled on the published repository and its first analysis succeeded with
 two results:
 
-- `js/polynomial-redos` on `candidateName`'s `^\/+` replacement. The path comes from an untrusted
-  capture, so the regex was replaced with a linear scan and a test now covers multiple leading
-  slashes (`///voyager/api/me` → `me`; the old code produced `voyagerApiMe`).
+- `js/polynomial-redos` on `candidateName`'s `^\/+` replacement and on the trailing `\/+$` used to
+  build a draft trigger. Both values come from captures or options, so both regexes were replaced
+  with linear scans. Tests cover multiple leading slashes (`///voyager/api/me` → `me`; the old code
+  produced `voyagerApiMe`) and a base URL ending in slashes.
 - `js/incomplete-url-substring-sanitization` in a discovery test that looked for
   `"tracking.example.com"` inside a *pathname*. The assertion could pass for the wrong reason; it
   now checks `candidate.host` instead. The production filter was already correct.
@@ -777,7 +778,7 @@ both are fixed and a fresh analysis runs on the next push.
 
 | item | value |
 |---|---|
-| tests | 151 passing, 15 files, offline (`node scripts/verify-suite.mjs`) |
+| tests | 152 passing, 15 files, offline (`node scripts/verify-suite.mjs`) |
 | typecheck / build | clean / emits and the built CLI runs |
 | live calls this session | **none** |
 | writes | still zero, still no write spec |

@@ -108,6 +108,13 @@ function withoutLeadingSlashes(value: string): string {
   return value.slice(start);
 }
 
+/** The same, for the trailing run: a regex here is also polynomial on hostile input. */
+function withoutTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "/") end -= 1;
+  return value.slice(0, end);
+}
+
 /** `identity/dash/profiles` becomes `identityDashProfiles`. */
 export function candidateName(path: string): string {
   // Collapse any run of leading slashes to the single slash the prefix expects.
@@ -209,7 +216,7 @@ export function toDraftSite(
   const baseUrl = options.baseUrl ?? "https://www.linkedin.com";
   // A trigger is a page a person opens, not a bare origin: discovery needs somewhere to start
   // observing the site's own requests from.
-  const triggerUrl = options.triggerUrl ?? `${baseUrl.replace(/\/+$/, "")}/feed/`;
+  const triggerUrl = options.triggerUrl ?? `${withoutTrailingSlashes(baseUrl)}/feed/`;
   return {
     name: options.name ?? "linkedin",
     displayName: options.displayName ?? "LinkedIn (draft)",

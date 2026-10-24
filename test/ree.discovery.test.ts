@@ -120,6 +120,15 @@ test("a draft spec attaches a trigger so the shape is complete enough to review"
   }
 });
 
+test("a base URL with trailing slashes does not produce a doubled trigger path", () => {
+  const site = parseSite(
+    toDraftSite(discoverCandidates(input), { baseUrl: "https://www.linkedin.com///" }),
+  );
+  for (const op of site.operations) {
+    assert.equal(op.trigger.url, "https://www.linkedin.com/feed/");
+  }
+});
+
 test("the REA driver executes a pinned release rather than whatever is latest", () => {
   assert.deepEqual(DEFAULT_REA_COMMAND, ["npx", "-y", "rea-agents@6.5.0"]);
 });

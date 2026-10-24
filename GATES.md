@@ -92,7 +92,7 @@ Every runnable gate above was re-executed from the reviewed tree. No live Linked
 
 | gate | command | result |
 |---|---|---|
-| G1 | `node scripts/verify-suite.mjs` | `suite verification passed (151 tests, 15 files)` |
+| G1 | `node scripts/verify-suite.mjs` | `suite verification passed (152 tests, 15 files)` |
 | G2 | `node scripts/verify-typecheck.mjs` | `typecheck passed (src and test compile with no errors)` |
 | G3 | `node scripts/verify-build.mjs` | `build verification passed (dist emitted and the CLI runs)` |
 | G4 | `node scripts/verify-gates.mjs engine` | passed, 10 tests |
@@ -102,7 +102,7 @@ Every runnable gate above was re-executed from the reviewed tree. No live Linked
 | G7 | `node scripts/verify-gates.mjs planner` | passed, 22 tests |
 | G8 | `node scripts/verify-gates.mjs specs` | passed, 10 tests |
 | G9 | `node scripts/verify-gates.mjs reads` | passed, 4 tests |
-| G10 | `node scripts/verify-gates.mjs discovery` | passed, 21 tests |
+| G10 | `node scripts/verify-gates.mjs discovery` | passed, 22 tests |
 | G11 | `node scripts/verify-gates.mjs cli` | passed, 33 tests |
 
 The emitted CLI was also exercised directly, against a temporary `API_ANYTHING_HOME` and state
