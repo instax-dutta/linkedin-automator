@@ -135,8 +135,9 @@ state, a dry-run planner, a confirming executor, and a CLI.
   Share a path, never a cookie value: an `li_at` value *is* the account until it expires.
 - **No credentials in specs, args, or logs.** Cookie and CSRF handling stays inside api-anything's
   `slots`/`ref` mechanism. If a secret would land in a spec file or an audit record, that is a bug.
-- **Respect human pace.** Pacing defaults come from LinkedIn's own invitation allowances, and the
-  governor is the only thing allowed to space requests.
+- **Respect human pace.** Pacing defaults come from LinkedIn's own invitation allowances. The
+  governor is the only component that decides whether a budget allows another action; the
+  executor only waits for the time the planner scheduled.
 - Commit atomically with conventional-commit subjects; one logical change per commit.
 
 ## Verification

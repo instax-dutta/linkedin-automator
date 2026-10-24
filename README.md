@@ -69,7 +69,8 @@ A write needs **four** things to run, and each is a separate chance to stop:
 3. **`LINKEDIN_AUTOMATOR_ALLOW_WRITES=true`**;
 4. **`--confirm`** on this run.
 
-Pacing ceilings default to LinkedIn's practical invitation envelope and are configurable.
+Pacing ceilings default to LinkedIn's practical invitation envelope. The per-day ceiling for each
+surface is configurable; the weekly and monthly ceilings stay at their conservative defaults.
 
 ## Verifying against a real account
 
