@@ -97,6 +97,11 @@ LinkedIn's terms restrict automated access. This project imports *your* session,
 defaults every write to dry-run, refuses writes without explicit confirmation, and does not solve
 CAPTCHAs or impersonate a TLS fingerprint. Whether and how you use it is your responsibility.
 
+## Security
+
+Report a vulnerability privately through GitHub's advisory form — see [SECURITY.md](SECURITY.md).
+Never include a session cookie in a report; a `li_at` value is the account until it expires.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

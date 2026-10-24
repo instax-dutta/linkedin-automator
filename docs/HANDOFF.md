@@ -772,7 +772,9 @@ all six features it tracks: branch protection on `master` (one approving review,
 resolution, no force pushes or deletions, admins still able to bypass), private vulnerability
 reporting, secret scanning with push protection, Dependabot alerts, Dependabot security updates,
 and CodeQL default setup. The first CodeQL analysis succeeded and produced the two results in F39;
-both are fixed and a fresh analysis runs on the next push.
+both are fixed, and the latest analysis has no open alerts. `SECURITY.md` records the private
+disclosure route (GitHub advisories), what is in scope, the offline-testing rule, and the explicit
+instruction never to send a session value.
 
 ### Current state
 
