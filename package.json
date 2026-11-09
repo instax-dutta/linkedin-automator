@@ -53,7 +53,7 @@
     "api-anything": "github:goodnight000/api-anything#1788526eb54ff1f0d8bd7373bd5fdcac143ad7ad"
   },
   "devDependencies": {
-    "@types/node": "^26.6.3",
+    "@types/node": "^26.6.6",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   },
